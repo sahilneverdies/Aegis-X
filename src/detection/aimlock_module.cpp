@@ -11,13 +11,13 @@
 #include <cmath>
 #include <cstdlib>
 
-CConVar<bool> cs2ac_aimlock_debug("cs2ac_aimlock_debug", FCVAR_NONE, "Show Aimlock tracking episodes and evidence", false);
+CConVar<bool> aegisx_aimlock_debug("aegisx_aimlock_debug", FCVAR_NONE, "Show Aegis-X TargetTrackingEngine tracking episodes and evidence", false);
 
 #define AIMLOCK_DEBUG(...) \
 	do \
 	{ \
-		if (cs2ac_aimlock_debug.GetBool()) \
-			Msg("[CS2AC Aimlock] " __VA_ARGS__); \
+		if (aegisx_aimlock_debug.GetBool()) \
+			Msg("[Aegis-X TargetTrackingEngine] " __VA_ARGS__); \
 	} while (0)
 
 namespace

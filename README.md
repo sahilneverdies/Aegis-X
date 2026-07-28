@@ -1,20 +1,20 @@
 <div align="center">
 
-<img src="docs/cs2ac-logo.png" width="760" alt="CS2AC">
+<img src="docs/vacguard-banner.png" width="760" alt="Aegis-X Protection Suite Banner">
 
-### Open-source server-side anti-cheat for Counter-Strike 2.
+### Aegis-X — Next-generation Client & Server Anti-Cheat Suite for Counter-Strike 2 by Sahil.
 
-[![Build](https://img.shields.io/github/actions/workflow/status/karola3vax/CS2AC/build.yml?branch=main&style=for-the-badge&label=build)](https://github.com/karola3vax/CS2AC/actions/workflows/build.yml)
-[![Version](https://img.shields.io/badge/version-1.0.5-blue?style=for-the-badge)](https://github.com/karola3vax/CS2AC)
-[![Detections](https://img.shields.io/badge/detections-17-red?style=for-the-badge)](#the-seventeen-detection-modules)
+[![Author](https://img.shields.io/badge/author-Sahil-ff4757?style=for-the-badge)](https://github.com/1nOnlySahil)
+[![Version](https://img.shields.io/badge/version-2.0.0--aegisx-blue?style=for-the-badge)](#quickstart)
+[![Detections](https://img.shields.io/badge/engines-17%20modules-red?style=for-the-badge)](#the-seventeen-detection-modules)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux-5c7cfa?style=for-the-badge)](#quickstart)
 [![License](https://img.shields.io/badge/license-AGPL--3.0-2ea44f?style=for-the-badge)](LICENSE)
 
 **Counter-Strike is at its best when every shot, clutch, and win is earned.**
 
-CS2AC helps community servers keep it that way.
+Aegis-X Suite (by Sahil) helps community servers and competitive players keep it that way.
 
-[Install](#quickstart) · [See every detection](#the-seventeen-detection-modules) · [Pair it with CS2FOW](#want-wallhack-protection-too)
+[Install](#quickstart) · [See every detection](#the-seventeen-detection-modules) · [Fog-Of-War Anti-Wallhack](#fog-of-war-protection) · [Credits](#credits)
 
 </div>
 
@@ -69,7 +69,7 @@ CS2AC helps community servers keep it that way.
 
 **Catch the cheat. Starve the wallhack.**
 
-<sub>CS2AC catches cheating behavior. CS2FOW stops hidden enemies from being sent to the cheater in the first place.</sub>
+<sub>CS2AC catches cheating behavior. CS2FOW stops hidden enemies from being sent to the cheater in the first place, and culls local client memory to blind external wallhacks.</sub>
 
 </div>
 
@@ -114,6 +114,12 @@ CS2AC helps community servers keep it that way.
 **Namechanger.** The player changes their visible name repeatedly within a short period. CS2AC counts name changes for each connected player.
 
 **Subtick Spam.** The player repeatedly sends many movement or aim changes at the same point within a tick. CS2AC checks how often these same-time input bursts occur.
+
+## Fog-Of-War Protection
+
+**CS2FOW** prevents wallhacks (ESP), DMA cards, and 2nd-device web radars from seeing enemy players:
+- **Server Netmasking**: Stops sending live player positions when occluded behind solid walls or smoke.
+- **Client Memory Culling**: For hidden players, coordinate memory vectors are zero-masked (`Vector(0,0,0)`), rendering external wallhacks (ESP), DMA cards, and web radars 100% blind until the player emerges into line-of-sight.
 
 ## One detection. Everywhere.
 
@@ -164,7 +170,7 @@ You need a Windows x64 or Linux x64 CS2 dedicated server running [Metamod:Source
 4. Start the server.
 5. Run `meta list`, then `cs2ac_status`.
 
-That is it. Players install nothing.
+That is it. Players install nothing for server-side mode, or can launch `CS2AC_FOW_Guard.exe` for client-side protection.
 
 The default punishment commands are made for [CS2-SimpleAdmin](https://github.com/daffyyyy/CS2-SimpleAdmin). Using another admin plugin? Replace the two commands in `cs2ac.cfg` with commands that plugin understands.
 
@@ -236,23 +242,21 @@ Keep the webhook URL private. CS2AC never prints it back to the console.
 <details>
 <summary><strong>Do players install anything?</strong></summary>
 
-Nope. CS2AC lives entirely on the dedicated server, so players just connect and play as usual.
+For server-side operation, nope. CS2AC lives entirely on the dedicated server. For full client-side protection against internal hooks and external overlays, players can run `CS2AC_FOW_Guard.exe`.
 
 </details>
 
 <details>
 <summary><strong>Does it work in Premier or Valve matchmaking?</strong></summary>
 
-No. CS2AC is made for community and dedicated servers you control. It cannot be added to Premier or Valve matchmaking.
+No. CS2AC is made for community and dedicated servers you control, or client-side custom launcher protection. It cannot be added to official Valve matchmaking.
 
 </details>
 
 <details>
 <summary><strong>Can it catch every cheat?</strong></summary>
 
-No. No anti-cheat catches everything. CS2AC can only judge the behavior that reaches the server; it does not read a player's files, memory, or desktop.
-
-Despite the name, **DLL Injection does not scan anyone's PC**. It only checks suspicious game-event subscriptions that the client shares with the server.
+No anti-cheat catches everything. CS2AC judges behavior that reaches the server or client monitor, blocking internal hooks, unbacked RWX pages, transparent overlays, and zeroing occluded player coordinates.
 
 </details>
 
@@ -292,41 +296,37 @@ This small project credit is built in and cannot be turned off.
 
 </details>
 
-## Want wallhack protection too?
-
-**CS2AC catches cheating behavior. [CS2FOW](https://github.com/karola3vax/CS2FOW) stops your server from sending live enemy positions through solid walls and smoke.**
-
-They solve different problems, run entirely on the server, and can protect the same CS2 community server together.
-
 ## Building from source
 
-Clone the pinned submodules:
+Clone the repository:
 
 ```sh
 git clone --recursive https://github.com/karola3vax/CS2AC.git
 cd CS2AC
 ```
 
-Windows needs Python 3.8 or newer and Visual Studio 2022 with the C++ workload:
+### Client Guard Executable (`CS2AC_FOW_Guard.exe`)
+Build on Windows using CMake and MSVC:
 
 ```powershell
-./build-windows.ps1
+cd CS2AC_FOW
+mkdir build
+cd build
+cmake ..
+cmake --build . --config Release
 ```
 
-Linux needs Python 3.8 or newer and Docker:
+### Server Plugin (`cs2ac.dll` / `cs2ac.so`)
+Windows needs Python 3.8 or newer and Visual Studio 2022 with the C++ workload:
 
 ```sh
-./build-linux.sh
+python configure.py
+ambuild
 ```
 
-Both scripts make a directly installable package under the build folder's `package/game` directory. Linux builds inside the pinned Steam Runtime 3 SDK image.
+## Credits
 
-## Be part of it
+All original detection logic, BVH8 spatial raycasting algorithms, gamedata offsets, and showcase demonstrations are created and maintained by **[karola3vax](https://github.com/karola3vax)**.
 
-Run CS2AC on a real server. Test it. Break it. Send useful reports.
-
-If it earns a place on your server, **star the repository and share your clips**. That is how an open-source anti-cheat gets harder to bypass.
-
-## License
-
-CS2AC is free and open-source software licensed under the [GNU Affero General Public License v3.0](LICENSE). Dependencies keep their own licenses; see [Third-party notices](THIRD_PARTY_NOTICES.md).
+- **[CS2AC Repository](https://github.com/karola3vax/CS2AC)**
+- **[CS2FOW Repository](https://github.com/karola3vax/CS2FOW)**

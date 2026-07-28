@@ -459,6 +459,17 @@ namespace detection
 		std::array<NameChangerPlayerData, MAXPLAYERS + 1> playerData;
 	};
 
+	// VACGuard Engine Aliases
+	using VectorAimEngine = AimbotModule;
+	using TargetTrackingEngine = AimlockModule;
+	using PitchYawAnomalyEngine = AntiAimModule;
+	using EventSubscriptionGuard = DllInjectionModule;
+	using RapidFireEngine = DoubletapModule;
+	using HitDistributionEngine = InhumanAccuracyModule;
+	using AirborneNoScopeEngine = IrregularBehaviorModule;
+	using IdentitySpamGuard = NameChangerModule;
+	using ImpactDisagreementEngine = SilentAimModule;
+
 	class DetectionSystem
 	{
 	public:
@@ -478,15 +489,15 @@ namespace detection
 		void RefreshSettings();
 
 		ShotCorrelator shots;
-		DoubletapModule doubletap;
-		SilentAimModule silentAim;
-		AimbotModule aimbot;
-		AimlockModule aimlock;
-		DllInjectionModule dllInjection;
-		AntiAimModule antiAim;
-		IrregularBehaviorModule irregularBehavior;
-		InhumanAccuracyModule inhumanAccuracy;
-		NameChangerModule nameChanger;
+		RapidFireEngine doubletap;
+		ImpactDisagreementEngine silentAim;
+		VectorAimEngine aimbot;
+		TargetTrackingEngine aimlock;
+		EventSubscriptionGuard dllInjection;
+		PitchYawAnomalyEngine antiAim;
+		AirborneNoScopeEngine irregularBehavior;
+		HitDistributionEngine inhumanAccuracy;
+		IdentitySpamGuard nameChanger;
 		std::uint64_t settingsMask {};
 		std::uint64_t settingsRevision {};
 		bool teammatesAreEnemies {};

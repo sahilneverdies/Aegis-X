@@ -15,6 +15,8 @@ def collectPluginSources(platform):
         continue
       if platform == 'linux' and filename.endswith(('_win.cpp', '_windows.cpp')):
         continue
+      if root.endswith('baker') and filename == 'main.cpp':
+        continue
       sources.append(os.path.join(root, filename))
   return sorted(sources)
 
@@ -64,6 +66,7 @@ if builder.options.opt == '1' and builder.options.debug != '1' and cxx.target.pl
 
 binary.compiler.cxxincludes += [
   os.path.join(builder.sourcePath, 'src'),
+  os.path.join(builder.sourcePath, 'src', 'fogofwar'),
   os.path.join(builder.sourcePath, 'src', 'clientcvar'),
   os.path.join(builder.sourcePath, 'src', 'clientcvar', 'dynlibutils'),
   os.path.join(builder.sourcePath, 'hl2sdk-cs2'),

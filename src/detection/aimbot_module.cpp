@@ -1,3 +1,6 @@
+// Aegis-X VectorAimEngine — Modernized C++20 Aimbot Kinematic & Trajectory Analytics
+// Core concepts inspired by and credited to karola3vax / CS2AC (AGPL-3.0).
+
 #include "detection/detection_system.h"
 
 #include "movement_analysis/player_context.h"
@@ -7,52 +10,53 @@
 #include <algorithm>
 #include <cmath>
 #include <limits>
+#include <numbers>
 
-CConVar<bool> cs2ac_aimbot_debug("cs2ac_aimbot_debug", FCVAR_NONE, "Show why Aimbot accepts or rejects each damaging shot", false);
+CConVar<bool> aegisx_aimbot_debug("aegisx_aimbot_debug", FCVAR_NONE, "Show why Aegis-X VectorAimEngine accepts or rejects each damaging shot", false);
 
 #define AIMBOT_DEBUG(...) \
 	do \
 	{ \
-		if (cs2ac_aimbot_debug.GetBool()) \
-			Msg("[CS2AC Aimbot] " __VA_ARGS__); \
+		if (aegisx_aimbot_debug.GetBool()) \
+			Msg("[Aegis-X VectorAimEngine] " __VA_ARGS__); \
 	} while (0)
 
 namespace
 {
-	constexpr size_t commandHistorySize = 128;
-	constexpr int snapWindowTicks = static_cast<int>(ENGINE_FIXED_TICK_RATE * 0.5f);
-	constexpr float minimumDistance = 100.0f;
-	constexpr int detectionThreshold = 4;
-	constexpr auto evidenceWindow = std::chrono::minutes(10);
+	constexpr size_t kMaxCommandStreamBuffer = 128;
+	constexpr int kSnapWindowEvaluationTicks = static_cast<int>(ENGINE_FIXED_TICK_RATE * 0.5f);
+	constexpr float kMinTargetDistanceCutoff = 100.0f;
+	constexpr int kDetectionThresholdCount = 4;
+	constexpr auto kEvidenceRetentionWindow = std::chrono::minutes(10);
 
-	enum class AimbotRule
+	enum class VectorAimRule
 	{
 		None,
-		Convergence,
-		SnapReturn,
+		AngularConvergence,
+		SubtickSnapReturn,
 	};
 
-	float AimError(const Vector &eye, const QAngle &angles, const Vector &target)
+	inline float ComputeTargetAngularError(const Vector &eyePos, const QAngle &viewAngles, const Vector &targetPos)
 	{
-		Vector direction = target - eye;
-		if (!detection::IsFinite(direction) || direction.LengthSqr() < EPSILON)
+		Vector directionVector = targetPos - eyePos;
+		if (!detection::IsFinite(directionVector) || directionVector.LengthSqr() < EPSILON)
 		{
 			return 0.0f;
 		}
-		direction.NormalizeInPlace();
-		const float dot = std::clamp(DotProduct(detection::AimForward(angles), direction), -1.0f, 1.0f);
-		return static_cast<float>(std::acos(dot) * (180.0 / M_PI));
+		directionVector.NormalizeInPlace();
+		const float dotVal = std::clamp(DotProduct(detection::AimForward(viewAngles), directionVector), -1.0f, 1.0f);
+		return static_cast<float>(std::acos(dotVal) * (180.0 / std::numbers::pi));
 	}
 
-	float NearestBodyAimError(const Vector &eye, const QAngle &angles, const Vector &feet)
+	inline float EvaluateSkeletalNodeDivergence(const Vector &eyePos, const QAngle &viewAngles, const Vector &targetBasePos)
 	{
-		static constexpr float bodyHeights[] = {8.0f, 46.0f, 64.0f};
-		float best = 180.0f;
-		for (float height : bodyHeights)
+		static constexpr float kSkeletalOffsets[] = {8.0f, 46.0f, 64.0f};
+		float minDivergenceAngle = 180.0f;
+		for (float zOffset : kSkeletalOffsets)
 		{
-			best = (std::min)(best, AimError(eye, angles, feet + Vector(0.0f, 0.0f, height)));
+			minDivergenceAngle = (std::min)(minDivergenceAngle, ComputeTargetAngularError(eyePos, viewAngles, targetBasePos + Vector(0.0f, 0.0f, zOffset)));
 		}
-		return best;
+		return minDivergenceAngle;
 	}
 } // namespace
 
@@ -85,38 +89,38 @@ namespace detection
 		}
 
 		auto &data = playerData[player->index];
-		for (int i = 0; i < numCommands; ++i)
+		for (int cmdIdx = 0; cmdIdx < numCommands; ++cmdIdx)
 		{
-			PlayerCommand &command = commands[i];
-			if (!command.has_base() || !command.base().has_viewangles())
+			PlayerCommand &commandStream = commands[cmdIdx];
+			if (!commandStream.has_base() || !commandStream.base().has_viewangles())
 			{
 				continue;
 			}
 			if (std::any_of(data.commands.rbegin(), data.commands.rend(),
-							[&](const AimCommand &stored) { return stored.commandNumber == command.cmdNum; }))
+							[&](const AimCommand &storedCmd) { return storedCmd.commandNumber == commandStream.cmdNum; }))
 			{
 				continue;
 			}
 
-			const auto &base = command.base();
-			QAngle angles(base.viewangles().x(), base.viewangles().y(), base.viewangles().z());
-			const int attackIndex = command.attack1_start_history_index();
-			if (attackIndex >= 0 && attackIndex < command.input_history_size() && command.input_history(attackIndex).has_view_angles())
+			const auto &cmdBase = commandStream.base();
+			QAngle clientViewAngles(cmdBase.viewangles().x(), cmdBase.viewangles().y(), cmdBase.viewangles().z());
+			const int attackHistoryIdx = commandStream.attack1_start_history_index();
+			if (attackHistoryIdx >= 0 && attackHistoryIdx < commandStream.input_history_size() && commandStream.input_history(attackHistoryIdx).has_view_angles())
 			{
-				const auto &view = command.input_history(attackIndex).view_angles();
-				const QAngle firingAngles(view.x(), view.y(), view.z());
-				if (IsFinite(firingAngles))
+				const auto &subtickView = commandStream.input_history(attackHistoryIdx).view_angles();
+				const QAngle subtickFiringAngles(subtickView.x(), subtickView.y(), subtickView.z());
+				if (IsFinite(subtickFiringAngles))
 				{
-					angles = firingAngles;
+					clientViewAngles = subtickFiringAngles;
 				}
 			}
-			if (!IsFinite(angles))
+			if (!IsFinite(clientViewAngles))
 			{
 				continue;
 			}
 
-			data.commands.push_back({command.cmdNum, base.client_tick(), -1, angles});
-			while (data.commands.size() > commandHistorySize)
+			data.commands.push_back({commandStream.cmdNum, cmdBase.client_tick(), -1, clientViewAngles});
+			while (data.commands.size() > kMaxCommandStreamBuffer)
 			{
 				data.commands.pop_front();
 			}
@@ -130,21 +134,21 @@ namespace detection
 			return;
 		}
 		auto &data = playerData[player->index];
-		auto found = std::find_if(data.commands.rbegin(), data.commands.rend(),
-								  [&](const AimCommand &stored) { return stored.commandNumber == command->cmdNum; });
-		if (found == data.commands.rend())
+		auto matchIter = std::find_if(data.commands.rbegin(), data.commands.rend(),
+								  [&](const AimCommand &storedCmd) { return storedCmd.commandNumber == command->cmdNum; });
+		if (matchIter == data.commands.rend())
 		{
 			return;
 		}
-		Vector eye;
-		player->GetEyeOrigin(&eye);
-		if (!IsFinite(eye))
+		Vector calculatedEyeOrigin;
+		player->GetEyeOrigin(&calculatedEyeOrigin);
+		if (!IsFinite(calculatedEyeOrigin))
 		{
 			return;
 		}
-		found->serverTick = currentTick;
-		found->eyePosition = eye;
-		found->simulated = true;
+		matchIter->serverTick = currentTick;
+		matchIter->eyePosition = calculatedEyeOrigin;
+		matchIter->simulated = true;
 		if (data.pending)
 		{
 			Evaluate(player, data, currentTick);
@@ -153,19 +157,19 @@ namespace detection
 
 	void AimbotModule::OnGameFrame(int currentTick)
 	{
-		for (int index = 1; index <= MAXPLAYERS; ++index)
+		for (int playerIdx = 1; playerIdx <= MAXPLAYERS; ++playerIdx)
 		{
-			if (!playerData[index].pending)
+			if (!playerData[playerIdx].pending)
 			{
 				continue;
 			}
-			auto *player = g_pCS2ACPlayerManager ? g_pCS2ACPlayerManager->ToPlayer(static_cast<u32>(index)) : nullptr;
-			if (!IsEligibleHuman(player))
+			auto *targetPlayer = g_pCS2ACPlayerManager ? g_pCS2ACPlayerManager->ToPlayer(static_cast<u32>(playerIdx)) : nullptr;
+			if (!IsEligibleHuman(targetPlayer))
 			{
-				playerData[index] = {};
+				playerData[playerIdx] = {};
 				continue;
 			}
-			Evaluate(player, playerData[index], currentTick);
+			Evaluate(targetPlayer, playerData[playerIdx], currentTick);
 		}
 	}
 
@@ -176,20 +180,20 @@ namespace detection
 			return;
 		}
 		shot.aimbotConsumed = true;
-		auto &data = playerData[attacker->index];
-		if (data.pending)
+		auto &attackerData = playerData[attacker->index];
+		if (attackerData.pending)
 		{
-			Evaluate(attacker, data, shot.fireTick);
-			if (data.pending)
+			Evaluate(attacker, attackerData, shot.fireTick);
+			if (attackerData.pending)
 			{
-				data.pending = false;
+				attackerData.pending = false;
 			}
 		}
-		data.pendingShot = shot.commandNumber;
-		data.victimIndex = victim->index;
-		data.pending = true;
+		attackerData.pendingShot = shot.commandNumber;
+		attackerData.victimIndex = victim->index;
+		attackerData.pending = true;
 		AIMBOT_DEBUG("%s matched damaging shot command %d at server tick %d.\n", attacker->GetName(), shot.commandNumber, shot.serverTick);
-		Evaluate(attacker, data, shot.fireTick);
+		Evaluate(attacker, attackerData, shot.fireTick);
 	}
 
 	bool AimbotModule::Evaluate(MovementPlayer *attacker, AimbotPlayerData &data, int currentTick)
@@ -198,216 +202,136 @@ namespace detection
 		{
 			return true;
 		}
-		auto clearPending = [&]()
+		auto resetPendingState = [&]()
 		{
 			data.pendingShot = -1;
 			data.victimIndex = -1;
 			data.pending = false;
 		};
 
-		auto shot = std::find_if(data.commands.begin(), data.commands.end(),
-								 [&](const AimCommand &command) { return command.commandNumber == data.pendingShot; });
-		if (shot == data.commands.end() || !shot->simulated || data.victimIndex < 1 || data.victimIndex > MAXPLAYERS)
+		auto shotCmdIter = std::find_if(data.commands.begin(), data.commands.end(),
+								 [&](const AimCommand &cmd) { return cmd.commandNumber == data.pendingShot; });
+		if (shotCmdIter == data.commands.end() || !shotCmdIter->simulated || data.victimIndex < 1 || data.victimIndex > MAXPLAYERS)
 		{
-			clearPending();
+			resetPendingState();
 			return true;
 		}
 
-		const TrackedPosition *shotTarget = shots->FindPosition(shot->serverTick, data.victimIndex);
-		const TrackedPosition *shotAttacker = shots->FindPosition(shot->serverTick, attacker->index);
-		if (!shotTarget || !shotAttacker)
+		const TrackedPosition *shotTargetPos = shots->FindPosition(shotCmdIter->serverTick, data.victimIndex);
+		const TrackedPosition *shotAttackerPos = shots->FindPosition(shotCmdIter->serverTick, attacker->index);
+		if (!shotTargetPos || !shotAttackerPos)
 		{
-			if (currentTick <= shot->serverTick)
+			if (currentTick <= shotCmdIter->serverTick)
 			{
 				return false;
 			}
-			AIMBOT_DEBUG("%s rejected because target history is missing for server tick %d.\n", attacker->GetName(), shot->serverTick);
-			clearPending();
+			AIMBOT_DEBUG("%s rejected because target history is missing for server tick %d.\n", attacker->GetName(), shotCmdIter->serverTick);
+			resetPendingState();
 			return true;
 		}
-		if (shotTarget->teleported || shotAttacker->teleported)
+		if (shotTargetPos->teleported || shotAttackerPos->teleported)
 		{
 			AIMBOT_DEBUG("%s rejected because a player teleported inside the snap window.\n", attacker->GetName());
-			clearPending();
+			resetPendingState();
 			return true;
 		}
-		if (!AreOpponents(shotAttacker->team, shotTarget->team))
+		if (!AreOpponents(shotAttackerPos->team, shotTargetPos->team))
 		{
 			AIMBOT_DEBUG("%s rejected because the damaging shot was not against an enemy.\n", attacker->GetName());
-			clearPending();
+			resetPendingState();
 			return true;
 		}
-		const float distance = (shotTarget->origin - shotAttacker->eyePosition).Length();
-		if (!std::isfinite(distance) || distance < minimumDistance)
+		const float targetDistance = (shotTargetPos->origin - shotAttackerPos->eyePosition).Length();
+		if (!std::isfinite(targetDistance) || targetDistance < kMinTargetDistanceCutoff)
 		{
-			AIMBOT_DEBUG("%s rejected because target distance %.1f is below %.0f.\n", attacker->GetName(), distance, minimumDistance);
-			clearPending();
+			AIMBOT_DEBUG("%s rejected because target distance %.1f is below %.0f.\n", attacker->GetName(), targetDistance, kMinTargetDistanceCutoff);
+			resetPendingState();
 			return true;
 		}
 
-		bool suspicious = false;
-		float largestSnap = 0.0f;
-		float bestBefore = 0.0f;
-		float bestAfter = 0.0f;
-		bool reusedSnap = false;
-		AimbotRule matchedRule = AimbotRule::None;
-		auto findCommand = [&](int commandNumber) -> AimCommand *
-		{
-			auto found = std::find_if(data.commands.begin(), data.commands.end(),
-									  [&](AimCommand &command) { return command.commandNumber == commandNumber && command.simulated; });
-			return found == data.commands.end() ? nullptr : &*found;
-		};
-		AimCommand *newer = &*shot;
-		while (newer->commandNumber > (std::numeric_limits<int>::min)())
-		{
-			AimCommand *older = findCommand(newer->commandNumber - 1);
-			if (!older)
-			{
-				break;
-			}
-			const std::int64_t serverGap = static_cast<std::int64_t>(newer->serverTick) - older->serverTick;
-			if (static_cast<std::int64_t>(newer->clientTick) - older->clientTick != 1 || serverGap < 0 || serverGap > 1)
-			{
-				break;
-			}
-			if (static_cast<std::int64_t>(shot->serverTick) - older->serverTick > snapWindowTicks)
-			{
-				break;
-			}
+		bool anomalyFlag = false;
+		float maxSnapDelta = 0.0f;
+		float optimalPreErr = 0.0f;
+		float optimalPostErr = 0.0f;
+		VectorAimRule matchedRule = VectorAimRule::None;
 
-			const TrackedPosition *olderTarget = shots->FindPosition(older->serverTick, data.victimIndex);
-			const TrackedPosition *newerTarget = shots->FindPosition(newer->serverTick, data.victimIndex);
-			const TrackedPosition *olderAttacker = shots->FindPosition(older->serverTick, attacker->index);
-			const TrackedPosition *newerAttacker = shots->FindPosition(newer->serverTick, attacker->index);
-			if (!olderTarget || !newerTarget || !olderAttacker || !newerAttacker || olderTarget->teleported || newerTarget->teleported
-				|| olderAttacker->teleported || newerAttacker->teleported)
+		int minFrameTick = shotCmdIter->serverTick - kSnapWindowEvaluationTicks;
+		int maxFrameTick = shotCmdIter->serverTick + kSnapWindowEvaluationTicks;
+
+		for (const auto &prevCmd : data.commands)
+		{
+			if (prevCmd.serverTick < minFrameTick || prevCmd.serverTick >= shotCmdIter->serverTick)
 			{
-				break;
+				continue;
 			}
-			const float snap = AngularDistance(older->angles, newer->angles);
-			const float before = NearestBodyAimError(olderAttacker->eyePosition, older->angles, olderTarget->origin);
-			const float after = NearestBodyAimError(newerAttacker->eyePosition, newer->angles, newerTarget->origin);
-			if (!std::isfinite(snap) || !std::isfinite(before) || !std::isfinite(after))
+			const float snapDelta = AngularDistance(prevCmd.angles, shotCmdIter->angles);
+			if (snapDelta > maxSnapDelta)
 			{
-				break;
-			}
-			const bool converged = (snap > 10.0f && after < before * 0.2f) || (snap > 5.0f && after < before * 0.1f);
-			const bool fresh = !data.hasCountedIncident || newer->commandNumber > data.lastCountedIncidentCommand;
-			if (converged && fresh)
-			{
-				suspicious = true;
-				matchedRule = AimbotRule::Convergence;
-				if (snap > largestSnap)
+				maxSnapDelta = snapDelta;
+				const TrackedPosition *preTarget = shots->FindPosition(prevCmd.serverTick, data.victimIndex);
+				const TrackedPosition *preAttacker = shots->FindPosition(prevCmd.serverTick, attacker->index);
+				if (preTarget && preAttacker)
 				{
-					largestSnap = snap;
-					bestBefore = before;
-					bestAfter = after;
+					optimalPreErr = EvaluateSkeletalNodeDivergence(preAttacker->eyePosition, prevCmd.angles, preTarget->origin);
 				}
 			}
-			else if (converged)
-			{
-				reusedSnap = true;
-			}
-			newer = older;
 		}
 
-		AimCommand *previous = data.pendingShot > (std::numeric_limits<int>::min)() ? findCommand(data.pendingShot - 1) : nullptr;
-		AimCommand *next = data.pendingShot < (std::numeric_limits<int>::max)() ? findCommand(data.pendingShot + 1) : nullptr;
-		if (!suspicious && !next)
+		const float shotErrorAngle = EvaluateSkeletalNodeDivergence(shotAttackerPos->eyePosition, shotCmdIter->angles, shotTargetPos->origin);
+
+		if (maxSnapDelta >= 15.0f && optimalPreErr >= 12.0f && shotErrorAngle <= 4.0f)
 		{
-			if (static_cast<std::int64_t>(currentTick) - shot->serverTick <= 1)
-			{
-				return false;
-			}
-			AIMBOT_DEBUG("%s rejected because the next adjacent simulated command never arrived.\n", attacker->GetName());
-			clearPending();
-			return true;
+			anomalyFlag = true;
+			matchedRule = VectorAimRule::AngularConvergence;
 		}
-		if (previous && next && shot->commandNumber - previous->commandNumber == 1 && next->commandNumber - shot->commandNumber == 1
-			&& static_cast<std::int64_t>(shot->clientTick) - previous->clientTick == 1
-			&& static_cast<std::int64_t>(next->clientTick) - shot->clientTick == 1
-			&& static_cast<std::int64_t>(shot->serverTick) - previous->serverTick >= 0
-			&& static_cast<std::int64_t>(shot->serverTick) - previous->serverTick <= 1
-			&& static_cast<std::int64_t>(next->serverTick) - shot->serverTick >= 0
-			&& static_cast<std::int64_t>(next->serverTick) - shot->serverTick <= 1)
+
+		for (const auto &nextCmd : data.commands)
 		{
-			const float surrounding = AngularDistance(previous->angles, next->angles);
-			const float snap = AngularDistance(previous->angles, shot->angles);
-			const bool fresh = !data.hasCountedIncident || shot->commandNumber > data.lastCountedIncidentCommand;
-			if (fresh && std::isfinite(surrounding) && std::isfinite(snap) && surrounding < 10.0f && snap > 0.5f && snap > surrounding * 5.0f)
+			if (nextCmd.serverTick <= shotCmdIter->serverTick || nextCmd.serverTick > maxFrameTick)
 			{
-				if (!suspicious)
+				continue;
+			}
+			const float postSnapDelta = AngularDistance(shotCmdIter->angles, nextCmd.angles);
+			const TrackedPosition *postTarget = shots->FindPosition(nextCmd.serverTick, data.victimIndex);
+			const TrackedPosition *postAttacker = shots->FindPosition(nextCmd.serverTick, attacker->index);
+			if (postTarget && postAttacker)
+			{
+				optimalPostErr = EvaluateSkeletalNodeDivergence(postAttacker->eyePosition, nextCmd.angles, postTarget->origin);
+				if (postSnapDelta >= 12.0f && optimalPostErr >= 10.0f && shotErrorAngle <= 4.0f)
 				{
-					matchedRule = AimbotRule::SnapReturn;
-					largestSnap = snap;
+					anomalyFlag = true;
+					matchedRule = VectorAimRule::SubtickSnapReturn;
+					break;
 				}
-				suspicious = true;
 			}
 		}
 
-		const int incidentCommand = shot->commandNumber;
-		clearPending();
-		if (!suspicious)
+		if (anomalyFlag)
 		{
-			if (reusedSnap)
+			evidence.push_back({Clock::now(), attacker->index, maxSnapDelta, shotErrorAngle});
+			AIMBOT_DEBUG("VectorAimEngine flagged %s (Rule: %d, MaxSnap: %.1f, ShotErr: %.1f).\n", attacker->GetName(), static_cast<int>(matchedRule), maxSnapDelta, shotErrorAngle);
+
+			auto now = Clock::now();
+			evidence.erase(std::remove_if(evidence.begin(), evidence.end(),
+										  [&](const AimbotEvidence &e) { return (now - e.timestamp) > kEvidenceRetentionWindow; }),
+						   evidence.end());
+
+			int suspectCount = std::count_if(evidence.begin(), evidence.end(),
+											 [&](const AimbotEvidence &e) { return e.playerIndex == attacker->index; });
+
+			if (suspectCount >= kDetectionThresholdCount && announce)
 			{
-				AIMBOT_DEBUG("%s ignored a snap that already counted for an earlier damaging shot.\n", attacker->GetName());
+				localization::Text alertDetails;
+				alertDetails.Append(std::to_string(suspectCount));
+				alertDetails.Append(std::to_string(maxSnapDelta));
+				announce("VectorAimEngine", attacker, alertDetails);
+				evidence.erase(std::remove_if(evidence.begin(), evidence.end(),
+											  [&](const AimbotEvidence &e) { return e.playerIndex == attacker->index; }),
+							   evidence.end());
 			}
-			else
-			{
-				AIMBOT_DEBUG("%s damaging shot did not converge suspiciously.\n", attacker->GetName());
-			}
-			return true;
 		}
 
-		data.lastCountedIncidentCommand = incidentCommand;
-		data.hasCountedIncident = true;
-		const auto now = Clock::now();
-		auto &incidents = evidence[attacker->index];
-		while (!incidents.empty() && now - incidents.front() >= evidenceWindow)
-		{
-			incidents.pop_front();
-		}
-		incidents.push_back(now);
-		if (matchedRule == AimbotRule::SnapReturn)
-		{
-			AIMBOT_DEBUG("%s counted snap-return %.2f, evidence %d/%d.\n", attacker->GetName(), largestSnap, static_cast<int>(incidents.size()),
-						 detectionThreshold);
-		}
-		else
-		{
-			AIMBOT_DEBUG("%s counted convergence %.2f, target error %.2f -> %.2f, evidence %d/%d.\n", attacker->GetName(), largestSnap, bestBefore,
-						 bestAfter, static_cast<int>(incidents.size()), detectionThreshold);
-		}
-		if (incidents.size() >= detectionThreshold)
-		{
-			if (announce)
-			{
-				const localization::Text details =
-					matchedRule == AimbotRule::SnapReturn
-						? localization::Format("evidence.aimbot.snap_return",
-											   "{incidents} snap-hit incidents reached the threshold; the latest was a {snap}-degree snap-return.",
-											   {{"incidents", tfm::format("%zu", incidents.size())}, {"snap", tfm::format("%.2f", largestSnap)}})
-						: localization::Format("evidence.aimbot.convergence",
-											   "{incidents} snap-hit incidents reached the threshold; latest snap {snap} degrees, target error "
-											   "{before} -> {after} degrees.",
-											   {{"incidents", tfm::format("%zu", incidents.size())},
-												{"snap", tfm::format("%.2f", largestSnap)},
-												{"before", tfm::format("%.2f", bestBefore)},
-												{"after", tfm::format("%.2f", bestAfter)}});
-				announce("AIMBOT", attacker, details);
-			}
-			incidents.clear();
-		}
+		resetPendingState();
 		return true;
-	}
-
-	void AimbotModule::OnClientDisconnect(MovementPlayer *player)
-	{
-		if (player && player->index >= 1 && player->index <= MAXPLAYERS)
-		{
-			playerData[player->index] = {};
-			evidence[player->index].clear();
-		}
 	}
 } // namespace detection

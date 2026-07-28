@@ -19,6 +19,7 @@
 #include "networksystem/inetworkmessages.h"
 #include "gameevents.pb.h"
 #include "igameevents.h"
+#include "fogofwar/plugin.h"
 
 CS2ACPlugin g_CS2AC;
 IClientCvarValue *g_pClientCvarValue {};
@@ -240,10 +241,22 @@ namespace
 	}
 } // namespace
 
+CON_COMMAND(vacguard_status, "Show the current VACGuard status")
+{
+	(void)args;
+	g_CS2AC.PrintStatus();
+}
+
 CON_COMMAND(cs2ac_status, "Show the current CS2AC status")
 {
 	(void)args;
 	g_CS2AC.PrintStatus();
+}
+
+CON_COMMAND(vacguard_help, "Show the available VACGuard administrator commands")
+{
+	(void)args;
+	g_CS2AC.PrintHelp();
 }
 
 CON_COMMAND(cs2ac_help, "Show the available CS2AC administrator commands")
@@ -252,10 +265,22 @@ CON_COMMAND(cs2ac_help, "Show the available CS2AC administrator commands")
 	g_CS2AC.PrintHelp();
 }
 
+CON_COMMAND(vacguard_reload, "Reload and validate vacguard.cfg")
+{
+	(void)args;
+	g_CS2AC.ReloadConfig();
+}
+
 CON_COMMAND(cs2ac_reload, "Reload and validate cs2ac.cfg")
 {
 	(void)args;
 	g_CS2AC.ReloadConfig();
+}
+
+CON_COMMAND(vacguard_check_config, "Check the current VACGuard settings without changing them")
+{
+	(void)args;
+	g_CS2AC.CheckConfig();
 }
 
 CON_COMMAND(cs2ac_check_config, "Check the current CS2AC settings without changing them")
@@ -546,12 +571,13 @@ bool CS2ACPlugin::Unpause(char *error, size_t maxlen)
 	return false;
 }
 
-void CS2ACPlugin::OnLevelInit(char const *, char const *, char const *, char const *, bool, bool)
+void CS2ACPlugin::OnLevelInit(char const *pMapName, char const *pMapEntities, char const *pOldLevel, char const *pLandmarkName, bool loadGame, bool background)
 {
 	if (loaded)
 	{
 		ResetRuntime();
 		Msg("[CS2AC] A new map is ready. Detection evidence started fresh.\n");
+		cs2fow::g_plugin.on_level_init(pMapName);
 	}
 }
 
@@ -560,6 +586,7 @@ void CS2ACPlugin::OnLevelShutdown()
 	if (loaded)
 	{
 		ResetRuntime();
+		cs2fow::g_plugin.on_level_shutdown();
 		Msg("[CS2AC] The map ended. Detection evidence was cleared.\n");
 	}
 }
@@ -582,6 +609,7 @@ void CS2ACPlugin::OnGameFrame(bool simulating)
 	{
 		detectionSystem.OnGameFrame(globals ? globals->tickcount : 0);
 	}
+	cs2fow::g_plugin.on_frame();
 	if (webhook)
 	{
 		webhook->OnGameFrame();
