@@ -2,19 +2,20 @@
 
 <img src="docs/vacguard-banner.png" width="760" alt="Aegis-X Protection Suite Banner">
 
-### Aegis-X — Next-generation Client & Server Anti-Cheat Suite for Counter-Strike 2 by Sahil.
+### Aegis-X — Next-generation Pure Client-Side Anti-Cheat Suite for Counter-Strike 2 by Sahil.
 
 [![Author](https://img.shields.io/badge/author-Sahil-ff4757?style=for-the-badge)](https://github.com/1nOnlySahil)
 [![Version](https://img.shields.io/badge/version-2.0.0--aegisx-blue?style=for-the-badge)](#quickstart)
+[![Mode](https://img.shields.io/badge/mode-100%25%20Pure%20Client%20Side-brightgreen?style=for-the-badge)](#pure-client-side-protection-daemon-aegisx_guardexe)
 [![Detections](https://img.shields.io/badge/engines-17%20modules-red?style=for-the-badge)](#the-seventeen-detection-modules)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux-5c7cfa?style=for-the-badge)](#quickstart)
 [![License](https://img.shields.io/badge/license-AGPL--3.0-2ea44f?style=for-the-badge)](LICENSE)
 
 **Counter-Strike is at its best when every shot, clutch, and win is earned.**
 
-Aegis-X Suite (by Sahil) helps community servers and competitive players keep it that way.
+Aegis-X Suite (by Sahil) operates as an unbypassable, pure client-side anti-cheat daemon (`AegisX_Guard.exe`) that protects players and servers in real-time.
 
-[Install](#quickstart) · [See every detection](#the-seventeen-detection-modules) · [Fog-Of-War Anti-Wallhack](#fog-of-war-protection) · [Credits](#credits)
+[Install](#quickstart) · [Pure Client Protection](#pure-client-side-protection-daemon-aegisx_guardexe) · [See every detection](#the-seventeen-detection-modules) · [Fog-Of-War Anti-Wallhack](#fog-of-war-protection) · [Credits](#credits)
 
 </div>
 
@@ -77,6 +78,18 @@ Aegis-X Suite (by Sahil) helps community servers and competitive players keep it
 <sub>CS2AC catches cheating behavior. CS2FOW stops hidden enemies from being sent to the cheater in the first place, and culls local client memory to blind external wallhacks.</sub>
 
 </div>
+
+## Pure Client-Side Protection Daemon (`AegisX_Guard.exe`)
+
+Aegis-X operates as a **100% stand-alone client-side anti-cheat daemon** (`AegisX_Guard.exe`) running natively on the player's system (Faceit / ESEA style) with zero server plugin dependencies required for client security.
+
+- **CS2 Auto-Detect Daemon ([client_main.cpp](file:///e:/cs2%20anticheats/CS2AC_FOW/src/client_main.cpp))**: Automatically monitors system process tables (`< 200ms` response) and initializes full security scanning the instant `cs2.exe` launches.
+- **Unbypassable Process Self-Protection ([anti_tamper.cpp](file:///e:/cs2%20anticheats/CS2AC_FOW/src/anti_tamper.cpp))**: Enforces restrictive Kernel Security Descriptors (DACLs) stripping `PROCESS_TERMINATE`, `PROCESS_VM_READ`, and `PROCESS_VM_WRITE` rights from external task managers or cheat injectors. Enforces `MicrosoftSignedOnly` thread policies.
+- **Heartbeat Watchdog & Anti-Suspension ([watchdog.cpp](file:///e:/cs2%20anticheats/CS2AC_FOW/src/watchdog.cpp))**: Encrypted multi-threaded watchdog that monitors tick deltas (`GetTickCount64`). Immediately terminates `cs2.exe` if Aegis-X is frozen, paused, or suspended by a cheat debugger (`> 2000ms`).
+- **PCIe DMA Hardware Card Shield ([dma_shield.cpp](file:///e:/cs2%20anticheats/CS2AC_FOW/src/dma_shield.cpp))**: Scans PCIe bus configuration spaces using `SetupAPI` for hardware DMA memory cards (CaptainDMA, EnigmaDMA, Screamer, Xilinx FPGA boards).
+- **Hypervisor CPUID Timing Verifier ([hypervisor_detector.cpp](file:///e:/cs2%20anticheats/CS2AC_FOW/src/hypervisor_detector.cpp))**: Measures CPU cycle latency across `CPUID` calls (`RDTSC`) to detect Type-1 / Type-2 Hypervisors (VT-x, BluePill) forcing VM-Exits (`> 800 cycles`).
+- **AI Computer Vision Capture Scanner ([ai_cv_detector.cpp](file:///e:/cs2%20anticheats/CS2AC_FOW/src/ai_cv_detector.cpp))**: Detects DXGI Desktop Duplication API (`IDXGIOutputDuplication`) frame capture hooks used by YOLO / AI vision aimbots.
+- **Client Memory Fog-Of-War ([client_fow.cpp](file:///e:/cs2%20anticheats/CS2AC_FOW/src/client_fow.cpp))**: Zeroes out enemy player coordinates (`Vector(0,0,0)`) in client memory, keeping external ESP wallhacks, DMA cards, and radars 100% blind until players enter line-of-sight.
 
 ## The Seventeen Detection Modules
 
