@@ -18,7 +18,10 @@ Aegis-X Suite (by Sahil) helps community servers and competitive players keep it
 
 </div>
 
-## See it catch
+<details>
+<summary><strong>Click to view detection showcase GIFs (See it catch)</strong></summary>
+
+<br>
 
 <table>
 <tr>
@@ -58,6 +61,8 @@ Aegis-X Suite (by Sahil) helps community servers and competitive players keep it
 </td>
 </tr>
 </table>
+
+</details>
 
 <div align="center">
 
