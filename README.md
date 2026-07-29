@@ -301,15 +301,15 @@ This small project credit is built in and cannot be turned off.
 Clone the repository:
 
 ```sh
-git clone --recursive https://github.com/karola3vax/CS2AC.git
-cd CS2AC
+git clone --recursive https://github.com/sahilneverdies/Aegis-X.git
+cd Aegis-X
 ```
 
-### Client Guard Executable (`CS2AC_FOW_Guard.exe`)
+### Client Guard Executable (`AegisX_Guard.exe`)
 Build on Windows using CMake and MSVC:
 
 ```powershell
-cd CS2AC_FOW
+cd Aegis-X
 mkdir build
 cd build
 cmake ..

@@ -16,6 +16,8 @@
 #include "dma_shield.h"
 #include "hypervisor_detector.h"
 #include "ai_cv_detector.h"
+#include "anti_tamper.h"
+#include "watchdog.h"
 
 DWORD FindCS2ProcessID() {
     HANDLE hSnap = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
@@ -66,6 +68,8 @@ void AbortGameAndNotifyUser(const std::vector<cs2ac::DetectionDetail>& detection
 }
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow) {
+    // 0. Enable unbypassable process self-protection & handle DACL restrictions
+    aegisx::AntiTamper::EnableSelfProtection();
     cs2ac::AntiDebug::HideCurrentThread();
 
     // 1. Check for active debuggers & hardware breakpoints
@@ -112,30 +116,24 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         return 1;
     }
 
-    DWORD cs2Pid = FindCS2ProcessID();
-    if (cs2Pid == 0) {
-        ShellExecuteA(NULL, "open", "steam://rungameid/730", NULL, NULL, SW_SHOWNORMAL);
-
-        for (int i = 0; i < 60; i++) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(500));
-            cs2Pid = FindCS2ProcessID();
-            if (cs2Pid != 0) break;
-        }
-    }
-
-    if (cs2Pid == 0) {
-        MessageBoxA(NULL, "Could not locate or launch Counter-Strike 2.", "VACGuard Anti-Cheat", MB_OK | MB_ICONWARNING);
-        return 1;
+    // 5. Continuous Auto-Start Daemon Loop (Detects CS2 startup or launches via Steam)
+    DWORD cs2Pid = 0;
+    while (cs2Pid == 0) {
+        cs2Pid = FindCS2ProcessID();
+        if (cs2Pid != 0) break;
+        std::this_thread::sleep_for(std::chrono::milliseconds(200));
     }
 
     HANDLE hCS2 = OpenProcess(PROCESS_VM_READ | PROCESS_VM_WRITE | PROCESS_QUERY_INFORMATION | PROCESS_TERMINATE, FALSE, cs2Pid);
     if (!hCS2) {
-        MessageBoxA(NULL, "VACGuard requires Administrator privileges to protect process memory.", "VACGuard Anti-Cheat", MB_OK | MB_ICONERROR);
+        MessageBoxA(NULL, "Aegis-X requires Administrator privileges to protect process memory.", "Aegis-X Anti-Cheat", MB_OK | MB_ICONERROR);
         return 1;
     }
 
-    // Apply process handle mitigations
+    // Apply process handle mitigations & start watchdog heartbeat monitor
     kernelGuard.EnforceHandleRestrictions(hCS2);
+    aegisx::Watchdog watchdog;
+    watchdog.StartWatchdog(cs2Pid);
 
     cs2ac::HookDetector detector;
     cs2ac::ExternalDetector extDetector;
@@ -148,6 +146,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
         // 1. Scan internal hooks, VMT hijacking, & RWX unbacked memory
         if (detector.RunFullScan(hCS2, detections)) {
+            watchdog.StopWatchdog();
             CloseHandle(hCS2);
             AbortGameAndNotifyUser(detections);
             return 0xFACE;
@@ -156,6 +155,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         // 2. Verify code section CRC32 integrity against byte patching
         std::string tamperedModule;
         if (!memoryGuard.VerifyCodeIntegrity(hCS2, tamperedModule)) {
+            watchdog.StopWatchdog();
             CloseHandle(hCS2);
             detections.push_back({ cs2ac::ScanResult::InlineHookDetected, "Memory code patching detected in module: " + tamperedModule, 0, tamperedModule });
             AbortGameAndNotifyUser(detections);
@@ -165,6 +165,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         // 3. Scan external transparent overlays placed over CS2
         std::vector<cs2ac::ExternalDetection> extDetections;
         if (extDetector.ScanExternalOverlays(cs2Pid, extDetections)) {
+            watchdog.StopWatchdog();
             CloseHandle(hCS2);
             std::vector<cs2ac::DetectionDetail> convertedDetections;
             for (const auto& ext : extDetections) {
@@ -177,6 +178,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         std::this_thread::sleep_for(std::chrono::seconds(1));
     }
 
+    watchdog.StopWatchdog();
     CloseHandle(hCS2);
     return 0;
 }

@@ -30,6 +30,10 @@ add_executable(AegisX_Guard WIN32
     src/ai_cv_detector.h
     src/leetify_analyzer.cpp
     src/leetify_analyzer.h
+    src/anti_tamper.cpp
+    src/anti_tamper.h
+    src/watchdog.cpp
+    src/watchdog.h
 )
 
 target_include_directories(AegisX_Guard PRIVATE
