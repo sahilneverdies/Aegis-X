@@ -373,7 +373,7 @@ void utils::AnnounceDetection(const char *detection, const char *playerName, Det
 		const std::string chatBody = localization::Format("announcement.detected", "detected {detection} on {player}{outcome}",
 														  {{"detection", "{lime}%s1{default}"}, {"player", "{grey}%s2{default}"}, {"outcome", "%s3"}})
 										 .localized;
-		const std::string chatTemplate = "{red}[CS2AC]{default} " + chatBody;
+		const std::string chatTemplate = "{red}[Aegis-X]{default} " + chatBody;
 		char coloredChat[512];
 		if (CFormat(coloredChat, sizeof(coloredChat), chatTemplate.c_str()))
 		{
@@ -393,7 +393,7 @@ void utils::AnnounceDetection(const char *detection, const char *playerName, Det
 	ReplaceAll(centerBody, "{detection}", "<span color='#00FF00'>" + safeDetection + "</span>");
 	ReplaceAll(centerBody, "{player}", "<span color='#B0B0B0'>" + safePlayerName + "</span>");
 	ReplaceAll(centerBody, "{outcome}", EscapeHtml(outcomeText.c_str()));
-	ShowCenterMessage("<span class='fontSize-l'><span color='#FF0000'>[CS2AC]</span> <span color='#FFFFFF'>" + centerBody + "</span></span>", true);
+	ShowCenterMessage("<span class='fontSize-l'><span color='#FF0000'>[Aegis-X]</span> <span color='#FFFFFF'>" + centerBody + "</span></span>", true);
 }
 
 void utils::AnnounceTest()
@@ -402,7 +402,7 @@ void utils::AnnounceTest()
 	const std::string localized = localization::Get("announcement.test", text);
 	if (settings::ShowChatAnnouncements())
 	{
-		const std::string chatTemplate = "{red}[CS2AC]{default} " + localized;
+		const std::string chatTemplate = "{red}[Aegis-X]{default} " + localized;
 		char coloredChat[256];
 		if (CFormat(coloredChat, sizeof(coloredChat), chatTemplate.c_str()))
 		{
@@ -412,35 +412,35 @@ void utils::AnnounceTest()
 	}
 	else
 	{
-		Msg("[CS2AC] The chat test was skipped because chat announcements are disabled.\n");
+		Msg("[Aegis-X] The chat test was skipped because chat announcements are disabled.\n");
 	}
 
 	if (settings::ShowCenterAnnouncements())
 	{
-		ShowCenterMessage("<span class='fontSize-l'><span color='#FF0000'>[CS2AC]</span> <span color='#FFFFFF'>" + EscapeHtml(localized.c_str())
+		ShowCenterMessage("<span class='fontSize-l'><span color='#FF0000'>[Aegis-X]</span> <span color='#FFFFFF'>" + EscapeHtml(localized.c_str())
 						  + "</span></span>");
 	}
 	else
 	{
-		Msg("[CS2AC] The center-screen test was skipped because center announcements are disabled.\n");
+		Msg("[Aegis-X] The center-screen test was skipped because center announcements are disabled.\n");
 	}
-	Msg("[CS2AC] Test announcement finished: %s\n", text);
+	Msg("[Aegis-X] Test announcement finished: %s\n", text);
 }
 
 void utils::AnnounceWatermark()
 {
 	const std::string chatBody = localization::Watermark({{"author", "{grey}%s1{default}"}}).localized;
-	const std::string chatTemplate = "{red}[CS2AC]{default} " + chatBody;
+	const std::string chatTemplate = "{red}[Aegis-X]{default} " + chatBody;
 	char coloredChat[256];
 	if (CFormat(coloredChat, sizeof(coloredChat), chatTemplate.c_str()))
 	{
 		CBroadcastRecipientFilter filter;
-		ClientPrintFilter(&filter, HUD_PRINTTALK, coloredChat, "karola3vax", "", "", "");
+		ClientPrintFilter(&filter, HUD_PRINTTALK, coloredChat, "Sahil", "", "", "");
 	}
 
 	std::string centerBody = EscapeHtml(localization::Watermark().localized.c_str());
-	ReplaceAll(centerBody, "{author}", "<span color='#B0B0B0'>karola3vax</span>");
-	ShowCenterMessage("<span class='fontSize-l'><span color='#FF0000'>[CS2AC]</span> <span color='#FFFFFF'>" + centerBody + "</span></span>", false,
+	ReplaceAll(centerBody, "{author}", "<span color='#B0B0B0'>Sahil</span>");
+	ShowCenterMessage("<span class='fontSize-l'><span color='#FF0000'>[Aegis-X]</span> <span color='#FFFFFF'>" + centerBody + "</span></span>", false,
 					  true);
 }
 

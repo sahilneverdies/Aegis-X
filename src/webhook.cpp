@@ -282,7 +282,7 @@ void WebhookService::Report(const char *detection, MovementPlayer *player, std::
 		queue.erase(queue.begin() + (request == INVALID_HTTPREQUEST_HANDLE ? 0 : 1));
 		if (!overflowWarned)
 		{
-			Msg("[CS2AC] The Discord webhook queue filled up. The oldest report was dropped so gameplay stays unaffected.\n");
+			Msg("[Aegis-X] The Discord webhook queue filled up. The oldest report was dropped so gameplay stays unaffected.\n");
 			overflowWarned = true;
 		}
 	}
@@ -308,12 +308,12 @@ void WebhookService::Test()
 {
 	if (!IsConfigured())
 	{
-		Msg("[CS2AC] The Discord webhook test was not sent because cs2ac_webhook_url is empty.\n");
+		Msg("[Aegis-X] The Discord webhook test was not sent because cs2ac_webhook_url is empty.\n");
 		return;
 	}
 	if (disabled)
 	{
-		Msg("[CS2AC] The Discord webhook is disabled after an error. Fix it and run cs2ac_reload before testing again.\n");
+		Msg("[Aegis-X] The Discord webhook is disabled after an error. Fix it and run cs2ac_reload before testing again.\n");
 		return;
 	}
 	if (queue.size() >= maximumQueueSize)
@@ -327,7 +327,7 @@ void WebhookService::Test()
 	report.outcome = utils::DetectionOutcome::PunishmentDisabled;
 	report.avatarResolved = true;
 	queue.push_back(std::move(report));
-	Msg("[CS2AC] The Discord webhook test was queued.\n");
+	Msg("[Aegis-X] The Discord webhook test was queued.\n");
 }
 
 void WebhookService::OnGameFrame()
