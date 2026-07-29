@@ -78,7 +78,7 @@ LeetifyProfileStats LeetifyAnalyzer::CalculateLiveTelemetry(uint64_t steamId64, 
 
 std::string LeetifyAnalyzer::FormatAnomalyReport(const LeetifyProfileStats& stats, const ProfileAnalysisResult& result) {
     std::ostringstream ss;
-    ss << "[VACGuard Telemetry] Player: " << stats.playerName << " (SteamID64: " << stats.steamId64 << ")\n";
+    ss << "[Aegis-X Telemetry] Player: " << stats.playerName << " (SteamID64: " << stats.steamId64 << ")\n";
     ss << "Aim Score: " << stats.aimScore << "/100 | Time-To-Damage: " << stats.timeToDamageMs << "ms | Rating: +" << stats.leetifyRating << "\n";
     ss << "Flagged Anomaly Reasons:\n";
     for (const auto& reason : result.flaggedReasons) {

@@ -40,6 +40,23 @@ bool MemoryGuard::RegisterModuleSection(HANDLE hProcess, HMODULE hModule, const 
 }
 
 bool MemoryGuard::VerifyCodeIntegrity(HANDLE hProcess, std::string& tamperedModuleName) {
+    if (m_monitoredSections.empty()) {
+        HMODULE hMods[1024];
+        DWORD cbNeeded;
+        if (EnumProcessModules(hProcess, hMods, sizeof(hMods), &cbNeeded)) {
+            size_t count = cbNeeded / sizeof(HMODULE);
+            for (size_t i = 0; i < count; i++) {
+                char szModName[MAX_PATH];
+                if (GetModuleBaseNameA(hProcess, hMods[i], szModName, sizeof(szModName))) {
+                    std::string modStr = szModName;
+                    if (modStr == "client.dll" || modStr == "engine2.dll" || modStr == "tier0.dll") {
+                        RegisterModuleSection(hProcess, hMods[i], modStr);
+                    }
+                }
+            }
+        }
+    }
+
     for (const auto& section : m_monitoredSections) {
         std::vector<uint8_t> buffer(section.sectionSize);
         SIZE_T bytesRead = 0;

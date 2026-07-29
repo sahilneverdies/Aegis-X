@@ -107,7 +107,14 @@ bool HookDetector::ScanUnbackedExecutableMemory(HANDLE hProcess, std::vector<Det
                 foundDetection = true;
             }
         }
-        address += mbi.RegionSize;
+        if (mbi.RegionSize == 0) {
+            break;
+        }
+        uintptr_t nextAddress = address + mbi.RegionSize;
+        if (nextAddress <= address) {
+            break; // Overflow protection
+        }
+        address = nextAddress;
     }
 
     return foundDetection;
