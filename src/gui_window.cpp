@@ -26,8 +26,14 @@ SteamProfileInfo AegisXWindow::FetchActiveSteamProfile() {
         RegCloseKey(hKey);
     }
 
-    // Retrieve Steam installation path to locate cached avatar PNG
+    // Retrieve Steam account name & installation path to locate cached avatar PNG
     if (RegOpenKeyExA(HKEY_CURRENT_USER, "Software\\Valve\\Steam", 0, KEY_READ, &hKey) == ERROR_SUCCESS) {
+        char accName[256]{};
+        DWORD szAcc = sizeof(accName);
+        if (RegQueryValueExA(hKey, "AutoLoginUser", NULL, NULL, reinterpret_cast<LPBYTE>(accName), &szAcc) == ERROR_SUCCESS && szAcc > 1) {
+            info.accountName = accName;
+        }
+
         char steamPath[MAX_PATH]{};
         DWORD sz = sizeof(steamPath);
         if (RegQueryValueExA(hKey, "SteamPath", NULL, NULL, reinterpret_cast<LPBYTE>(steamPath), &sz) == ERROR_SUCCESS) {
@@ -497,17 +503,18 @@ void AegisXWindow::OnPaint(HWND hwnd) {
             Rectangle(memDC, 22, 22, 74, 74);
             DeleteObject(cyanPen);
 
-            // Player Name
+            // Player Persona Name (Display Name)
             SelectObject(memDC, nameFont);
             SetTextColor(memDC, RGB(255, 255, 255));
             RECT nameRect{ 82, 22, 232, 44 };
             DrawTextA(memDC, m_profile.personaName.c_str(), -1, &nameRect, DT_LEFT | DT_SINGLELINE);
 
-            // Steam Tag Badge
+            // Steam Account Name Tag (e.g. ACCOUNT: sahil12119)
             SelectObject(memDC, badgeFont);
             SetTextColor(memDC, cyanGlow);
             RECT tagRect{ 82, 44, 232, 60 };
-            DrawTextA(memDC, "[ STEAM AUTHENTICATED ]", -1, &tagRect, DT_LEFT | DT_SINGLELINE);
+            std::string accTag = "[ ACCOUNT: " + (m_profile.accountName.empty() ? m_profile.personaName : m_profile.accountName) + " ]";
+            DrawTextA(memDC, accTag.c_str(), -1, &tagRect, DT_LEFT | DT_SINGLELINE);
 
             // ID64 Subtitle
             SelectObject(memDC, subFont);
