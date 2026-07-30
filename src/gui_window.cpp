@@ -63,8 +63,8 @@ bool AegisXWindow::CreateAegisWindow(HINSTANCE hInstance) {
 
     RegisterClassExA(&wc);
 
-    int width = 430;
-    int height = 220;
+    int width = 460;
+    int height = 230;
     int screenW = GetSystemMetrics(SM_CXSCREEN);
     int screenH = GetSystemMetrics(SM_CYSCREEN);
     int x = (screenW - width) / 2;
@@ -168,7 +168,7 @@ void AegisXWindow::OnPaint(HWND hwnd) {
         // --- AEGIS CYBER STARTING SERVICE ANIMATION ---
         HFONT logoFont = CreateFontA(24, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE, "Segoe UI");
         HFONT titleFont = CreateFontA(15, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE, "Segoe UI");
-        HFONT subFont = CreateFontA(11, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE, "Segoe UI");
+        HFONT subFont = CreateFontA(13, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE, "Segoe UI");
 
         // Aegis-X Header (Electric Cyan #00E5FF)
         SelectObject(memDC, logoFont);
@@ -184,20 +184,20 @@ void AegisXWindow::OnPaint(HWND hwnd) {
 
         // Subtitle Text
         SelectObject(memDC, subFont);
-        SetTextColor(memDC, RGB(140, 160, 185));
+        SetTextColor(memDC, RGB(160, 190, 220));
         RECT subRect{ 0, 85, clientRect.right, 105 };
         DrawTextA(memDC, "Kernel Security & Driver Shield (by Sahil)", -1, &subRect, DT_CENTER | DT_SINGLELINE);
 
         // Progress Bar Outer Track (#161B22)
-        RECT barOuter{ 85, 115, 330, 120 };
+        RECT barOuter{ 95, 118, 365, 123 };
         HBRUSH trackBrush = CreateSolidBrush(RGB(22, 27, 34));
         FillRect(memDC, &barOuter, trackBrush);
         DeleteObject(trackBrush);
 
         // Progress Bar Inner Fill (#00E5FF Electric Cyan)
-        int fillWidth = (245 * m_loadingProgress) / 100;
+        int fillWidth = (270 * m_loadingProgress) / 100;
         if (fillWidth > 0) {
-            RECT barInner{ 85, 115, 85 + fillWidth, 120 };
+            RECT barInner{ 95, 118, 95 + fillWidth, 123 };
             HBRUSH fillBrush = CreateSolidBrush(RGB(0, 229, 255));
             FillRect(memDC, &barInner, fillBrush);
             DeleteObject(fillBrush);
@@ -205,7 +205,7 @@ void AegisXWindow::OnPaint(HWND hwnd) {
 
         // Animated Pulsing Cyber Dots
         int centerX = clientRect.right / 2;
-        int dotsY = 142;
+        int dotsY = 148;
         int dotSpacing = 12;
         int startX = centerX - (2 * dotSpacing);
 
@@ -227,11 +227,12 @@ void AegisXWindow::OnPaint(HWND hwnd) {
         DeleteObject(titleFont);
         DeleteObject(subFont);
     } else {
-        // --- AEGIS ORIGINAL DASHBOARD UI ---
-        HFONT nameFont = CreateFontA(18, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE, "Segoe UI");
-        HFONT avatarFont = CreateFontA(22, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE, "Segoe UI");
-        HFONT subFont = CreateFontA(11, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE, "Segoe UI");
-        HFONT cardTitleFont = CreateFontA(12, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE, "Segoe UI");
+        // --- HIGH-READABILITY MAIN DASHBOARD UI ---
+        HFONT nameFont = CreateFontA(20, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE, "Segoe UI");
+        HFONT avatarFont = CreateFontA(24, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE, "Segoe UI");
+        HFONT subFont = CreateFontA(13, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE, "Segoe UI");
+        HFONT bodyFont = CreateFontA(13, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE, "Segoe UI");
+        HFONT cardTitleFont = CreateFontA(14, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE, "Segoe UI");
 
         // 1. Render Steam Profile Card (#161B22 Cyber Dark)
         RECT profileCard{ 10, 10, clientRect.right - 10, 68 };
@@ -273,41 +274,41 @@ void AegisXWindow::OnPaint(HWND hwnd) {
         Rectangle(memDC, 17, 17, 61, 61);
         DeleteObject(cyanPen);
 
-        // Steam Persona Name
+        // Steam Persona Name (Bright Pure White #FFFFFF)
         SelectObject(memDC, nameFont);
         SetTextColor(memDC, RGB(255, 255, 255));
-        RECT nameTextRect{ 68, 19, clientRect.right - 18, 40 };
+        RECT nameTextRect{ 68, 18, clientRect.right - 18, 40 };
         DrawTextA(memDC, m_profile.personaName.c_str(), -1, &nameTextRect, DT_LEFT | DT_SINGLELINE);
 
-        // Steam ID / Status Subtitle
+        // Steam ID / Status Subtitle (Bright Ice Cyan #80F2FF)
         SelectObject(memDC, subFont);
-        SetTextColor(memDC, RGB(0, 229, 255));
+        SetTextColor(memDC, RGB(128, 242, 255));
         std::string subText = "[ STEAM AUTHENTICATED ]   |   ID64: " + std::to_string(m_profile.steamId64);
-        RECT subTextRect{ 68, 42, clientRect.right - 18, 60 };
+        RECT subTextRect{ 68, 42, clientRect.right - 18, 62 };
         DrawTextA(memDC, subText.c_str(), -1, &subTextRect, DT_LEFT | DT_SINGLELINE);
 
         // 2. Render Security Status Banner (#0D281E Dark Emerald for valid, #2E0F17 for violation)
-        RECT bannerCard{ 10, 76, clientRect.right - 10, 142 };
+        RECT bannerCard{ 10, 76, clientRect.right - 10, 145 };
         COLORREF bannerBg = m_isViolation ? RGB(46, 15, 23) : RGB(13, 40, 30);
         COLORREF bannerBorder = m_isViolation ? RGB(255, 46, 84) : RGB(0, 245, 160);
         HBRUSH bannerBrush = CreateSolidBrush(bannerBg);
         FillRect(memDC, &bannerCard, bannerBrush);
         DeleteObject(bannerBrush);
 
-        // Banner Title
+        // Banner Title (Bright Emerald Green #00F5A0)
         SelectObject(memDC, cardTitleFont);
         SetTextColor(memDC, bannerBorder);
         std::string bannerTitle = m_isViolation ? "[!] Security Violation Detected" : "[ HARDWARE && DRIVER SHIELD ACTIVE ]";
         RECT bannerTitleRect{ 20, 85, clientRect.right - 20, 104 };
         DrawTextA(memDC, bannerTitle.c_str(), -1, &bannerTitleRect, DT_LEFT | DT_SINGLELINE);
 
-        // Banner Body Text
-        SelectObject(memDC, subFont);
-        SetTextColor(memDC, RGB(215, 235, 225));
+        // Banner Body Text (Clear Light Emerald #E2F9EE)
+        SelectObject(memDC, bodyFont);
+        SetTextColor(memDC, RGB(226, 249, 238));
         std::string bannerBody = m_isViolation ?
             (m_violationText.empty() ? "Unauthorized cheat behavior detected. CS2 process terminated." : m_violationText) :
             "Aegis-X Real-Time Driver Shield, Anti-Tamper && Kernel Watchdog are fully operational.";
-        RECT bannerBodyRect{ 20, 106, clientRect.right - 20, 136 };
+        RECT bannerBodyRect{ 20, 106, clientRect.right - 20, 138 };
         DrawTextA(memDC, bannerBody.c_str(), -1, &bannerBodyRect, DT_LEFT | DT_WORDBREAK);
 
         // 3. Render Bottom Status Bar
@@ -319,17 +320,19 @@ void AegisXWindow::OnPaint(HWND hwnd) {
         HPEN nullPen = (HPEN)GetStockObject(NULL_PEN);
         SelectObject(memDC, statusDotBrush);
         SelectObject(memDC, nullPen);
-        Ellipse(memDC, 16, 153, 25, 162);
+        Ellipse(memDC, 16, 157, 26, 167);
         DeleteObject(statusDotBrush);
 
-        SetTextColor(memDC, RGB(180, 200, 220));
-        std::string bottomText = "Aegis-X Engine v3.0 | Status: " + m_statusText;
-        RECT statusTextRect{ 30, 150, clientRect.right - 10, 168 };
+        // Bright High-Contrast Status Text (#F1F5F9)
+        SetTextColor(memDC, RGB(241, 245, 249));
+        std::string bottomText = "Aegis-X Engine v3.0  |  Status: " + m_statusText;
+        RECT statusTextRect{ 32, 154, clientRect.right - 10, 174 };
         DrawTextA(memDC, bottomText.c_str(), -1, &statusTextRect, DT_LEFT | DT_SINGLELINE);
 
         DeleteObject(nameFont);
         DeleteObject(avatarFont);
         DeleteObject(subFont);
+        DeleteObject(bodyFont);
         DeleteObject(cardTitleFont);
     }
 
