@@ -10,6 +10,8 @@ struct EnumParams {
     std::vector<ExternalDetection>* detections;
 };
 
+#include <psapi.h>
+
 static BOOL CALLBACK EnumWindowsCallback(HWND hwnd, LPARAM lParam) {
     EnumParams* params = reinterpret_cast<EnumParams*>(lParam);
 
@@ -19,6 +21,49 @@ static BOOL CALLBACK EnumWindowsCallback(HWND hwnd, LPARAM lParam) {
     GetWindowThreadProcessId(hwnd, &windowPid);
 
     if (windowPid == params->cs2Pid || windowPid == 0) return TRUE;
+
+    char className[256]{};
+    GetClassNameA(hwnd, className, sizeof(className));
+    std::string classStr = className;
+
+    // Whitelist official Steam / Windows / System window classes
+    if (classStr == "Valve_Steam_Overlay" || classStr == "vguiPopupWindow" || classStr == "Steam" ||
+        classStr == "SteamOverlayHost" || classStr == "CursorVisualClass" || classStr == "ThumbnailDeviceHelperWnd" ||
+        classStr == "Button" || classStr == "Shell_TrayWnd" || classStr == "Progman" || classStr == "WorkerW") {
+        return TRUE;
+    }
+
+    // Inspect process owner path
+    HANDLE hProc = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, windowPid);
+    if (hProc) {
+        char exePath[MAX_PATH]{};
+        if (GetModuleFileNameExA(hProc, NULL, exePath, sizeof(exePath)) > 0) {
+            std::string procPath = exePath;
+            std::transform(procPath.begin(), procPath.end(), procPath.begin(), ::tolower);
+
+            // Whitelist Windows system processes & legitimate overlays (Steam, Discord, NVIDIA, AMD)
+            if (procPath.find("explorer.exe") != std::string::npos ||
+                procPath.find("dwm.exe") != std::string::npos ||
+                procPath.find("svchost.exe") != std::string::npos ||
+                procPath.find("csrss.exe") != std::string::npos ||
+                procPath.find("shellexperiencehost.exe") != std::string::npos ||
+                procPath.find("searchhost.exe") != std::string::npos ||
+                procPath.find("startmenuexperiencehost.exe") != std::string::npos ||
+                procPath.find("textinputhost.exe") != std::string::npos ||
+                procPath.find("applicationframehost.exe") != std::string::npos ||
+                procPath.find("steam.exe") != std::string::npos ||
+                procPath.find("gameoverlayui.exe") != std::string::npos ||
+                procPath.find("steamwebhelper.exe") != std::string::npos ||
+                procPath.find("discord.exe") != std::string::npos ||
+                procPath.find("nvidia share.exe") != std::string::npos ||
+                procPath.find("nvcontainer.exe") != std::string::npos ||
+                procPath.find("radeonsoftware.exe") != std::string::npos) {
+                CloseHandle(hProc);
+                return TRUE;
+            }
+        }
+        CloseHandle(hProc);
+    }
 
     LONG exStyle = GetWindowLong(hwnd, GWL_EXSTYLE);
 
@@ -30,9 +75,6 @@ static BOOL CALLBACK EnumWindowsCallback(HWND hwnd, LPARAM lParam) {
 
                 char title[256]{};
                 GetWindowTextA(hwnd, title, sizeof(title));
-
-                char className[256]{};
-                GetClassNameA(hwnd, className, sizeof(className));
 
                 ExternalDetection det{};
                 det.type = "ExternalOverlayDetected";

@@ -4,7 +4,7 @@ project(AegisX CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-add_executable(AegisX_Guard WIN32
+add_executable(AegisX_ClientGuard WIN32
     src/client_main.cpp
     src/hook_detector.cpp
     src/hook_detector.h
@@ -36,11 +36,11 @@ add_executable(AegisX_Guard WIN32
     src/watchdog.h
 )
 
-target_include_directories(AegisX_Guard PRIVATE
+target_include_directories(AegisX_ClientGuard PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
 
-target_link_libraries(AegisX_Guard PRIVATE
+target_link_libraries(AegisX_ClientGuard PRIVATE
     psapi
     advapi32
     user32
