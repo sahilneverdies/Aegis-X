@@ -123,13 +123,24 @@ bool HookDetector::ScanUnbackedExecutableMemory(HANDLE hProcess, std::vector<Det
         if ((mbi.State == MEM_COMMIT) && isExec && !(mbi.Protect & PAGE_GUARD)) {
             std::string moduleName;
             if (!IsAddressInValidModule(hProcess, reinterpret_cast<uintptr_t>(mbi.BaseAddress), moduleName)) {
-                DetectionDetail detail{};
-                detail.type = ScanResult::UnbackedExecutableMemory;
-                detail.address = reinterpret_cast<uintptr_t>(mbi.BaseAddress);
-                detail.description = "Manual-mapped internal cheat code detected in unbacked memory at 0x" + std::to_string(detail.address);
-                detail.moduleName = "UnbackedMemory";
-                detections.push_back(detail);
-                foundDetection = true;
+                // Verify PE DOS Header ('MZ') and PE NT Header ('PE\0\0') signature to distinguish manual-mapped cheat DLLs from clean JIT memory
+                WORD magic = 0;
+                SIZE_T read = 0;
+                if (ReadProcessMemory(hProcess, mbi.BaseAddress, &magic, sizeof(magic), &read) && read == sizeof(magic) && magic == IMAGE_DOS_SIGNATURE) {
+                    LONG e_lfanew = 0;
+                    if (ReadProcessMemory(hProcess, reinterpret_cast<LPCVOID>(reinterpret_cast<uintptr_t>(mbi.BaseAddress) + 0x3C), &e_lfanew, sizeof(e_lfanew), &read) && e_lfanew > 0 && e_lfanew < 0x1000) {
+                        DWORD ntMagic = 0;
+                        if (ReadProcessMemory(hProcess, reinterpret_cast<LPCVOID>(reinterpret_cast<uintptr_t>(mbi.BaseAddress) + e_lfanew), &ntMagic, sizeof(ntMagic), &read) && ntMagic == IMAGE_NT_SIGNATURE) {
+                            DetectionDetail detail{};
+                            detail.type = ScanResult::UnbackedExecutableMemory;
+                            detail.address = reinterpret_cast<uintptr_t>(mbi.BaseAddress);
+                            detail.description = "Manual-mapped internal cheat DLL detected in unbacked memory at 0x" + std::to_string(detail.address);
+                            detail.moduleName = "UnbackedMemory";
+                            detections.push_back(detail);
+                            foundDetection = true;
+                        }
+                    }
+                }
             }
         }
         if (mbi.RegionSize == 0) {

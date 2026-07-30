@@ -435,7 +435,7 @@ void AegisXWindow::OnPaintRedScreen(HWND hwnd) {
     SelectObject(memDC, promptFont);
     SetTextColor(memDC, cyanGlow);
     RECT promptR{ cardRect.left + 20, cardRect.top + 320, cardRect.right - 20, cardRect.top + 370 };
-    DrawTextA(memDC, "[ PRESS CTRL + SHIFT + G TO DISMISS LOCKOUT SCREEN ]", -1, &promptR, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+    DrawTextA(memDC, "[ GO Cheat somewhere else ]", -1, &promptR, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
 
     DeleteObject(iconFont);
     DeleteObject(headFont);
