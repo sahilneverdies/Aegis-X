@@ -6,27 +6,16 @@
 namespace cs2ac {
 
 bool HookDetector::IsAddressInValidModule(HANDLE hProcess, uintptr_t address, std::string& outModuleName) {
-    HMODULE hMods[1024];
-    DWORD cbNeeded;
-
-    if (EnumProcessModules(hProcess, hMods, sizeof(hMods), &cbNeeded)) {
-        size_t count = cbNeeded / sizeof(HMODULE);
-        for (size_t i = 0; i < count; i++) {
-            MODULEINFO modInfo{};
-            if (GetModuleInformation(hProcess, hMods[i], &modInfo, sizeof(modInfo))) {
-                uintptr_t modStart = reinterpret_cast<uintptr_t>(modInfo.lpBaseOfDll);
-                uintptr_t modEnd = modStart + modInfo.SizeOfImage;
-
-                if (address >= modStart && address < modEnd) {
-                    char szModName[MAX_PATH];
-                    if (GetModuleBaseNameA(hProcess, hMods[i], szModName, sizeof(szModName))) {
-                        outModuleName = szModName;
-                    } else {
-                        outModuleName = "UnknownModule";
-                    }
-                    return true;
-                }
+    MEMORY_BASIC_INFORMATION mbi{};
+    if (VirtualQueryEx(hProcess, reinterpret_cast<LPCVOID>(address), &mbi, sizeof(mbi))) {
+        if (mbi.Type == MEM_IMAGE) {
+            char szModName[MAX_PATH];
+            if (GetModuleFileNameExA(hProcess, reinterpret_cast<HMODULE>(mbi.AllocationBase), szModName, sizeof(szModName))) {
+                outModuleName = szModName;
+            } else {
+                outModuleName = "ValidModuleImage";
             }
+            return true; // Memory is backed by a valid DLL image on disk
         }
     }
     outModuleName = "UnbackedMemory";
@@ -59,10 +48,12 @@ bool HookDetector::ScanInlineHooks(HANDLE hProcess, HMODULE hModule, const char*
 
     if (destinationAddress != 0) {
         std::string modName;
-        if (!IsAddressInValidModule(hProcess, destinationAddress, modName) || modName == "UnbackedMemory") {
+        if (!IsAddressInValidModule(hProcess, destinationAddress, modName)) {
+            char hexAddr[32];
+            snprintf(hexAddr, sizeof(hexAddr), "0x%llX", static_cast<unsigned long long>(destinationAddress));
             detail.type = ScanResult::InlineHookDetected;
             detail.address = destinationAddress;
-            detail.description = std::string("Unauthorized inline hook on ") + functionName + " pointing to unbacked memory (0x" + std::to_string(destinationAddress) + ").";
+            detail.description = std::string("Unauthorized inline hook on ") + functionName + " pointing to unbacked memory (" + hexAddr + ").";
             detail.moduleName = modName;
             return true;
         }
