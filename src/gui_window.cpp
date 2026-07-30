@@ -95,7 +95,7 @@ bool AegisXWindow::CreateAegisWindow(HINSTANCE hInstance) {
     RegisterClassExA(&wc);
 
     int width = 500;
-    int height = 255;
+    int height = 295;
     int screenW = GetSystemMetrics(SM_CXSCREEN);
     int screenH = GetSystemMetrics(SM_CYSCREEN);
     int x = (screenW - width) / 2;
@@ -253,7 +253,7 @@ LRESULT CALLBACK AegisXWindow::WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
     }
 }
 
-static void DrawNeumorphicCard(HDC hdc, const RECT& rc, COLORREF bgCol, COLORREF highlightCol, COLORREF shadowCol) {
+static void DrawSkeuomorphicCard(HDC hdc, const RECT& rc, COLORREF bgCol, COLORREF highlightCol, COLORREF shadowCol) {
     HBRUSH bgBrush = CreateSolidBrush(bgCol);
     FillRect(hdc, &rc, bgBrush);
     DeleteObject(bgBrush);
@@ -261,13 +261,13 @@ static void DrawNeumorphicCard(HDC hdc, const RECT& rc, COLORREF bgCol, COLORREF
     HPEN lightPen = CreatePen(PS_SOLID, 1, highlightCol);
     HPEN darkPen = CreatePen(PS_SOLID, 1, shadowCol);
 
-    // Top & Left Light Bevel Highlight
+    // 3D Top-Left Specular Light Bevel
     HPEN oldPen = (HPEN)SelectObject(hdc, lightPen);
     MoveToEx(hdc, rc.left, rc.bottom - 1, NULL);
     LineTo(hdc, rc.left, rc.top);
     LineTo(hdc, rc.right - 1, rc.top);
 
-    // Bottom & Right Soft Drop Shadow
+    // 3D Bottom-Right Drop Shadow Bevel
     SelectObject(hdc, darkPen);
     LineTo(hdc, rc.right - 1, rc.bottom - 1);
     LineTo(hdc, rc.left, rc.bottom - 1);
@@ -277,7 +277,7 @@ static void DrawNeumorphicCard(HDC hdc, const RECT& rc, COLORREF bgCol, COLORREF
     DeleteObject(darkPen);
 }
 
-static void DrawNeumorphicInset(HDC hdc, const RECT& rc, COLORREF bgCol, COLORREF shadowCol, COLORREF highlightCol) {
+static void DrawSkeuomorphicPill(HDC hdc, const RECT& rc, COLORREF bgCol, COLORREF shadowCol, COLORREF highlightCol) {
     HBRUSH bgBrush = CreateSolidBrush(bgCol);
     FillRect(hdc, &rc, bgBrush);
     DeleteObject(bgBrush);
@@ -285,13 +285,13 @@ static void DrawNeumorphicInset(HDC hdc, const RECT& rc, COLORREF bgCol, COLORRE
     HPEN darkPen = CreatePen(PS_SOLID, 1, shadowCol);
     HPEN lightPen = CreatePen(PS_SOLID, 1, highlightCol);
 
-    // Top & Left Inner Inset Shadow
+    // Recessed Top-Left Inner Shadow (Debossed look matching user reference)
     HPEN oldPen = (HPEN)SelectObject(hdc, darkPen);
     MoveToEx(hdc, rc.left, rc.bottom - 1, NULL);
     LineTo(hdc, rc.left, rc.top);
     LineTo(hdc, rc.right - 1, rc.top);
 
-    // Bottom & Right Inner Inset Highlight Rim
+    // Recessed Bottom-Right Inner Highlight Rim
     SelectObject(hdc, lightPen);
     LineTo(hdc, rc.right - 1, rc.bottom - 1);
     LineTo(hdc, rc.left, rc.bottom - 1);
@@ -299,6 +299,20 @@ static void DrawNeumorphicInset(HDC hdc, const RECT& rc, COLORREF bgCol, COLORRE
     SelectObject(hdc, oldPen);
     DeleteObject(darkPen);
     DeleteObject(lightPen);
+}
+
+static void DrawSkeuomorphicStitch(HDC hdc, const RECT& rc, COLORREF stitchCol) {
+    HPEN stitchPen = CreatePen(PS_DOT, 1, stitchCol);
+    HBRUSH nullBrush = (HBRUSH)GetStockObject(NULL_BRUSH);
+
+    HPEN oldPen = (HPEN)SelectObject(hdc, stitchPen);
+    HBRUSH oldBrush = (HBRUSH)SelectObject(hdc, nullBrush);
+
+    Rectangle(hdc, rc.left + 3, rc.top + 3, rc.right - 3, rc.bottom - 3);
+
+    SelectObject(hdc, oldPen);
+    SelectObject(hdc, oldBrush);
+    DeleteObject(stitchPen);
 }
 
 void AegisXWindow::OnPaint(HWND hwnd) {
@@ -313,9 +327,12 @@ void AegisXWindow::OnPaint(HWND hwnd) {
     HBITMAP memBM = CreateCompatibleBitmap(hdc, clientRect.right, clientRect.bottom);
     HBITMAP oldBM = (HBITMAP)SelectObject(memDC, memBM);
 
-    // Cyberpunk Dark Background #0B0E14
-    COLORREF baseBg = RGB(11, 14, 20);
-    COLORREF panelBg = RGB(18, 22, 30);
+    // Skeuomorphic Rich Tactile Slate Surface #151921
+    COLORREF baseBg = RGB(21, 25, 33);
+    COLORREF panelBg = RGB(28, 34, 46);
+    COLORREF recessedBg = RGB(17, 20, 28);
+    COLORREF lightBevel = RGB(65, 75, 95);
+    COLORREF darkShadow = RGB(10, 12, 16);
     COLORREF cyanGlow = RGB(0, 229, 255);
     COLORREF matrixGreen = RGB(0, 255, 157);
     COLORREF alertRed = RGB(255, 46, 84);
@@ -327,18 +344,18 @@ void AegisXWindow::OnPaint(HWND hwnd) {
     SetBkMode(memDC, TRANSPARENT);
 
     if (m_isLoading) {
-        // --- FUTURISTIC CYBER STARTING SERVICE RADAR ---
+        // --- SKEUOMORPHIC STARTING SERVICE ANIMATION ---
         HFONT logoFont = CreateFontA(22, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE, "Segoe UI");
         HFONT titleFont = CreateFontA(15, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE, "Segoe UI");
         HFONT subFont = CreateFontA(12, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE, "Segoe UI");
 
-        // Aegis-X Radar Logo Header
+        // Aegis-X Header (Electric Cyan #00E5FF)
         SelectObject(memDC, logoFont);
         SetTextColor(memDC, cyanGlow);
         RECT logoRect{ 0, 25, clientRect.right, 55 };
-        DrawTextA(memDC, "⚡ AEGIS-X ULTRA KERNEL SHIELD", -1, &logoRect, DT_CENTER | DT_SINGLELINE);
+        DrawTextA(memDC, "[ AEGIS-X ULTRA KERNEL SHIELD ]", -1, &logoRect, DT_CENTER | DT_SINGLELINE);
 
-        // Status Text
+        // Loading Status Text
         SelectObject(memDC, titleFont);
         SetTextColor(memDC, RGB(255, 255, 255));
         RECT titleRect{ 0, 62, clientRect.right, 85 };
@@ -350,13 +367,11 @@ void AegisXWindow::OnPaint(HWND hwnd) {
         RECT subRect{ 0, 88, clientRect.right, 108 };
         DrawTextA(memDC, "Real-Time PCIe DMA & Hypervisor Security (by Sahil)", -1, &subRect, DT_CENTER | DT_SINGLELINE);
 
-        // Cyber Track Frame
+        // Skeuomorphic Recessed Progress Track
         RECT barOuter{ 90, 120, clientRect.right - 90, 126 };
-        HBRUSH trackBrush = CreateSolidBrush(RGB(24, 30, 42));
-        FillRect(memDC, &barOuter, trackBrush);
-        DeleteObject(trackBrush);
+        DrawSkeuomorphicPill(memDC, barOuter, recessedBg, darkShadow, lightBevel);
 
-        // Glowing Fill
+        // Glowing Inner Progress Fill
         int totalW = clientRect.right - 180;
         int fillWidth = (totalW * m_loadingProgress) / 100;
         if (fillWidth > 0) {
@@ -366,7 +381,7 @@ void AegisXWindow::OnPaint(HWND hwnd) {
             DeleteObject(fillBrush);
         }
 
-        // Radar Pulse Ring
+        // Animated Pulsing Dots
         int centerX = clientRect.right / 2;
         int dotsY = 150;
         int dotSpacing = 12;
@@ -390,198 +405,164 @@ void AegisXWindow::OnPaint(HWND hwnd) {
         DeleteObject(titleFont);
         DeleteObject(subFont);
     } else {
-        // --- 3-COLUMN FUTURISTIC CYBERPUNK HUD ---
+        // --- SKEUOMORPHIC HIGH-TACTILE DASHBOARD ---
         HFONT nameFont = CreateFontA(17, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE, "Segoe UI");
         HFONT badgeFont = CreateFontA(11, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE, "Segoe UI");
         HFONT subFont = CreateFontA(12, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE, "Segoe UI");
         HFONT titleFont = CreateFontA(13, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE, "Segoe UI");
 
-        if (m_hasUpdate) {
-            // --- DEDICATED UPDATE POPUP LAYOUT (MATCHES USER HAND-DRAWN SKETCH) ---
-            RECT updateCard{ 12, 12, clientRect.right - 12, 165 };
-            HBRUSH cardBrush = CreateSolidBrush(panelBg);
-            FillRect(memDC, &updateCard, cardBrush);
-            DeleteObject(cardBrush);
+        // LEFT PANEL: Skeuomorphic Stacked Security Cards (X: 10 to 240)
+        RECT leftCard{ 10, 10, 240, 200 };
+        DrawSkeuomorphicCard(memDC, leftCard, panelBg, lightBevel, darkShadow);
+        DrawSkeuomorphicStitch(memDC, leftCard, RGB(45, 55, 75));
 
-            HPEN topPen = CreatePen(PS_SOLID, 2, cyanGlow);
-            HPEN oldP = (HPEN)SelectObject(memDC, topPen);
-            MoveToEx(memDC, updateCard.left, updateCard.top, NULL);
-            LineTo(memDC, updateCard.right, updateCard.top);
-            SelectObject(memDC, oldP);
-            DeleteObject(topPen);
+        // Player Avatar Box (Square 52x52 at X:22, Y:22)
+        RECT avatarRect{ 22, 22, 74, 74 };
+        DrawSkeuomorphicPill(memDC, avatarRect, recessedBg, darkShadow, lightBevel);
 
-            // 1. Header Title
-            SelectObject(memDC, nameFont);
-            SetTextColor(memDC, cyanGlow);
-            RECT headRect{ 20, 24, clientRect.right - 20, 48 };
-            DrawTextA(memDC, "[ AEGIS-X SECURITY UPDATE AVAILABLE ]", -1, &headRect, DT_CENTER | DT_SINGLELINE);
-
-            // 2. Info Text Lines
-            SelectObject(memDC, titleFont);
-            SetTextColor(memDC, RGB(255, 255, 255));
-            RECT line1Rect{ 20, 54, clientRect.right - 20, 74 };
-            std::string l1 = "A new client update is ready to install (v" + m_updateInfo.latestVersion + " - " + std::to_string(m_updateInfo.updateSizeMB) + " MB)";
-            DrawTextA(memDC, l1.c_str(), -1, &line1Rect, DT_CENTER | DT_SINGLELINE);
-
-            SelectObject(memDC, subFont);
-            SetTextColor(memDC, RGB(128, 242, 255));
-            RECT line2Rect{ 20, 78, clientRect.right - 20, 98 };
-            DrawTextA(memDC, "Changelog: Enhanced Kernel Guard 2.0 & PCIe DMA Shield", -1, &line2Rect, DT_CENTER | DT_SINGLELINE);
-
-            // 3. Large Centered Interactive [ UPDATE NOW (20 MB) ] Button (Matches Sketch)
-            COLORREF btnBg = m_btnHovered ? matrixGreen : cyanGlow;
-            COLORREF btnTxt = RGB(11, 14, 20);
-
-            HBRUSH btnBrush = CreateSolidBrush(btnBg);
-            FillRect(memDC, &m_updateBtnRect, btnBrush);
-            DeleteObject(btnBrush);
-
-            HPEN btnPen = CreatePen(PS_SOLID, 1, cyanGlow);
-            SelectObject(memDC, btnPen);
-            HBRUSH nullBrush = (HBRUSH)GetStockObject(NULL_BRUSH);
-            SelectObject(memDC, nullBrush);
-            Rectangle(memDC, m_updateBtnRect.left, m_updateBtnRect.top, m_updateBtnRect.right, m_updateBtnRect.bottom);
-            DeleteObject(btnPen);
-
-            SelectObject(memDC, nameFont);
-            SetTextColor(memDC, btnTxt);
-            std::string btnStr = m_updateInfo.isDownloading ? "DOWNLOADING UPDATE..." : "[ UPDATE NOW (20 MB) ]";
-            DrawTextA(memDC, btnStr.c_str(), -1, &m_updateBtnRect, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
-        } else {
-            // COLUMN 1: Steam Player Profile Box (X: 12 to 160)
-            RECT col1{ 12, 12, 160, 165 };
-            HBRUSH col1Brush = CreateSolidBrush(panelBg);
-            FillRect(memDC, &col1, col1Brush);
-            DeleteObject(col1Brush);
-
-            // Player Avatar (Square 50x50 at X:61, Y:22)
-            RECT avatarRect{ 61, 22, 111, 72 };
-            bool avatarDrawn = false;
-            if (!m_profile.avatarPath.empty()) {
-                std::wstring wAvatarPath(m_profile.avatarPath.begin(), m_profile.avatarPath.end());
-                Gdiplus::Bitmap avatarImg(wAvatarPath.c_str());
-                if (avatarImg.GetLastStatus() == Gdiplus::Ok) {
-                    Gdiplus::Graphics graphics(memDC);
-                    graphics.SetInterpolationMode(Gdiplus::InterpolationModeHighQualityBicubic);
-                    graphics.DrawImage(&avatarImg, 61, 22, 50, 50);
-                    avatarDrawn = true;
-                }
+        bool avatarDrawn = false;
+        if (!m_profile.avatarPath.empty()) {
+            std::wstring wAvatarPath(m_profile.avatarPath.begin(), m_profile.avatarPath.end());
+            Gdiplus::Bitmap avatarImg(wAvatarPath.c_str());
+            if (avatarImg.GetLastStatus() == Gdiplus::Ok) {
+                Gdiplus::Graphics graphics(memDC);
+                graphics.SetInterpolationMode(Gdiplus::InterpolationModeHighQualityBicubic);
+                graphics.DrawImage(&avatarImg, 23, 23, 50, 50);
+                avatarDrawn = true;
             }
-
-            if (!avatarDrawn) {
-                HBRUSH fallbackBrush = CreateSolidBrush(RGB(25, 32, 44));
-                FillRect(memDC, &avatarRect, fallbackBrush);
-                DeleteObject(fallbackBrush);
-
-                SelectObject(memDC, nameFont);
-                SetTextColor(memDC, cyanGlow);
-                std::string initialStr = m_profile.personaName.empty() ? "S" : m_profile.personaName.substr(0, 1);
-                DrawTextA(memDC, initialStr.c_str(), -1, &avatarRect, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
-            }
-
-            // Cyan Square Border around Avatar
-            HPEN cyanPen = CreatePen(PS_SOLID, 1, cyanGlow);
-            HBRUSH nullBrush = (HBRUSH)GetStockObject(NULL_BRUSH);
-            SelectObject(memDC, cyanPen);
-            SelectObject(memDC, nullBrush);
-            Rectangle(memDC, 60, 21, 112, 73);
-            DeleteObject(cyanPen);
-
-            // Player Name
-            SelectObject(memDC, nameFont);
-            SetTextColor(memDC, RGB(255, 255, 255));
-            RECT nameRect{ 14, 80, 158, 102 };
-            DrawTextA(memDC, m_profile.personaName.c_str(), -1, &nameRect, DT_CENTER | DT_SINGLELINE);
-
-            // Steam Tag
-            SelectObject(memDC, badgeFont);
-            SetTextColor(memDC, cyanGlow);
-            RECT tagRect{ 14, 104, 158, 122 };
-            DrawTextA(memDC, "[ STEAM AUTHENTICATED ]", -1, &tagRect, DT_CENTER | DT_SINGLELINE);
-
-            // ID64 Subtitle
-            SelectObject(memDC, subFont);
-            SetTextColor(memDC, RGB(140, 160, 185));
-            std::string idStr = "ID: " + std::to_string(m_profile.steamId64);
-            RECT idRect{ 14, 125, 158, 150 };
-            DrawTextA(memDC, idStr.c_str(), -1, &idRect, DT_CENTER | DT_SINGLELINE);
-
-            // COLUMN 2: Security Shield Gauge (X: 170 to 310)
-            RECT col2{ 170, 12, 310, 165 };
-            HBRUSH col2Brush = CreateSolidBrush(panelBg);
-            FillRect(memDC, &col2, col2Brush);
-            DeleteObject(col2Brush);
-
-            // Gauge Circle Ring (Center: 240, 70)
-            COLORREF gaugeColor = m_isViolation ? alertRed : matrixGreen;
-            HPEN gaugePen = CreatePen(PS_SOLID, 3, gaugeColor);
-            SelectObject(memDC, gaugePen);
-            SelectObject(memDC, nullBrush);
-            Ellipse(memDC, 205, 30, 275, 100);
-            DeleteObject(gaugePen);
-
-            // Gauge Title inside Ring
-            SelectObject(memDC, nameFont);
-            SetTextColor(memDC, gaugeColor);
-            RECT gaugeText{ 205, 52, 275, 78 };
-            std::string statusPct = m_isViolation ? "ALERT" : "100%";
-            DrawTextA(memDC, statusPct.c_str(), -1, &gaugeText, DT_CENTER | DT_SINGLELINE);
-
-            SelectObject(memDC, titleFont);
-            SetTextColor(memDC, RGB(255, 255, 255));
-            RECT gaugeLbl{ 174, 110, 306, 130 };
-            DrawTextA(memDC, m_isViolation ? "VIOLATION" : "HARDWARE SHIELD", -1, &gaugeLbl, DT_CENTER | DT_SINGLELINE);
-
-            SelectObject(memDC, subFont);
-            SetTextColor(memDC, RGB(140, 160, 185));
-            RECT gaugeSub{ 174, 132, 306, 155 };
-            DrawTextA(memDC, "TPM / Secure Boot", -1, &gaugeSub, DT_CENTER | DT_SINGLELINE);
-
-            // COLUMN 3: Live Security Metrics Checklist
-            RECT col3{ 320, 12, clientRect.right - 12, 165 };
-            HBRUSH col3Brush = CreateSolidBrush(panelBg);
-            FillRect(memDC, &col3, col3Brush);
-            DeleteObject(col3Brush);
-
-            SelectObject(memDC, titleFont);
-            SetTextColor(memDC, cyanGlow);
-            RECT metricTitle{ 330, 20, clientRect.right - 18, 38 };
-            DrawTextA(memDC, "ACTIVE MODULES", -1, &metricTitle, DT_LEFT | DT_SINGLELINE);
-
-            SelectObject(memDC, subFont);
-            SetTextColor(memDC, matrixGreen);
-            RECT m1{ 330, 42, clientRect.right - 18, 60 };
-            DrawTextA(memDC, "[+] KERNEL SHIELD: PASS", -1, &m1, DT_LEFT | DT_SINGLELINE);
-
-            RECT m2{ 330, 62, clientRect.right - 18, 80 };
-            DrawTextA(memDC, "[+] PCIe DMA SHIELD: PASS", -1, &m2, DT_LEFT | DT_SINGLELINE);
-
-            RECT m3{ 330, 84, clientRect.right - 18, 102 };
-            DrawTextA(memDC, "[+] HYPERVISOR GUARD: PASS", -1, &m3, DT_LEFT | DT_SINGLELINE);
-
-            RECT m4{ 330, 104, clientRect.right - 18, 122 };
-            DrawTextA(memDC, "[+] ANTI-TAMPER: ACTIVE", -1, &m4, DT_LEFT | DT_SINGLELINE);
         }
 
-        // BOTTOM STATUS BAR (X: 12 to clientRect.right - 12, Y: 172 to 212)
-        RECT bottomBarRect{ 12, 172, clientRect.right - 12, 212 };
-        HBRUSH bottomBarBrush = CreateSolidBrush(RGB(18, 22, 30));
-        FillRect(memDC, &bottomBarRect, bottomBarBrush);
-        DeleteObject(bottomBarBrush);
+        if (!avatarDrawn) {
+            SelectObject(memDC, nameFont);
+            SetTextColor(memDC, cyanGlow);
+            std::string initialStr = m_profile.personaName.empty() ? "S" : m_profile.personaName.substr(0, 1);
+            DrawTextA(memDC, initialStr.c_str(), -1, &avatarRect, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+        }
+
+        // Cyan Specular Border around Avatar
+        HPEN cyanPen = CreatePen(PS_SOLID, 1, cyanGlow);
+        HBRUSH nullBrush = (HBRUSH)GetStockObject(NULL_BRUSH);
+        SelectObject(memDC, cyanPen);
+        SelectObject(memDC, nullBrush);
+        Rectangle(memDC, 22, 22, 74, 74);
+        DeleteObject(cyanPen);
+
+        // Player Name
+        SelectObject(memDC, nameFont);
+        SetTextColor(memDC, RGB(255, 255, 255));
+        RECT nameRect{ 82, 22, 232, 44 };
+        DrawTextA(memDC, m_profile.personaName.c_str(), -1, &nameRect, DT_LEFT | DT_SINGLELINE);
+
+        // Steam Tag Badge
+        SelectObject(memDC, badgeFont);
+        SetTextColor(memDC, cyanGlow);
+        RECT tagRect{ 82, 44, 232, 60 };
+        DrawTextA(memDC, "[ STEAM AUTHENTICATED ]", -1, &tagRect, DT_LEFT | DT_SINGLELINE);
+
+        // ID64 Subtitle
+        SelectObject(memDC, subFont);
+        SetTextColor(memDC, RGB(150, 170, 195));
+        std::string idStr = "ID: " + std::to_string(m_profile.steamId64);
+        RECT idRect{ 82, 60, 232, 76 };
+        DrawTextA(memDC, idStr.c_str(), -1, &idRect, DT_LEFT | DT_SINGLELINE);
+
+        // Skeuomorphic Hardware Security Card Sub-Panel (Y: 90 to 188)
+        RECT hwCard{ 20, 90, 230, 188 };
+        DrawSkeuomorphicCard(memDC, hwCard, RGB(22, 27, 36), lightBevel, darkShadow);
+
+        // 3D Sphere Gauge Indicator (Center X: 45, Y: 139)
+        COLORREF gaugeColor = m_isViolation ? alertRed : matrixGreen;
+        HBRUSH sphereBrush = CreateSolidBrush(gaugeColor);
+        HPEN nullP = (HPEN)GetStockObject(NULL_PEN);
+        SelectObject(memDC, sphereBrush);
+        SelectObject(memDC, nullP);
+        Ellipse(memDC, 30, 124, 60, 154);
+        DeleteObject(sphereBrush);
+
+        SelectObject(memDC, nameFont);
+        SetTextColor(memDC, gaugeColor);
+        RECT hwTitle{ 68, 104, 220, 126 };
+        DrawTextA(memDC, m_isViolation ? "SECURITY ALERT" : "100% ARMORED", -1, &hwTitle, DT_LEFT | DT_SINGLELINE);
+
+        SelectObject(memDC, subFont);
+        SetTextColor(memDC, RGB(200, 215, 230));
+        RECT hwSub{ 68, 128, 220, 146 };
+        DrawTextA(memDC, "Hardware Shield Active", -1, &hwSub, DT_LEFT | DT_SINGLELINE);
+
+        SelectObject(memDC, badgeFont);
+        SetTextColor(memDC, cyanGlow);
+        RECT hwSub2{ 68, 148, 220, 168 };
+        DrawTextA(memDC, "TPM 2.0 / Secure Boot / IOMMU", -1, &hwSub2, DT_LEFT | DT_SINGLELINE);
+
+        // RIGHT PANEL: Skeuomorphic Tactile Remote Surface (X: 250 to 490) (Matches User Image)
+        RECT rightCard{ 250, 10, clientRect.right - 10, 200 };
+        DrawSkeuomorphicCard(memDC, rightCard, panelBg, lightBevel, darkShadow);
+        DrawSkeuomorphicStitch(memDC, rightCard, RGB(45, 55, 75));
+
+        SelectObject(memDC, titleFont);
+        SetTextColor(memDC, cyanGlow);
+        RECT rTitle{ 260, 18, clientRect.right - 20, 36 };
+        DrawTextA(memDC, "SKEUOMORPHIC CONTROLS", -1, &rTitle, DT_LEFT | DT_SINGLELINE);
+
+        // Debossed Recessed Pill 1
+        RECT pill1{ 258, 40, clientRect.right - 20, 68 };
+        DrawSkeuomorphicPill(memDC, pill1, recessedBg, darkShadow, lightBevel);
+        SelectObject(memDC, badgeFont);
+        SetTextColor(memDC, matrixGreen);
+        RECT p1Text{ 268, 40, clientRect.right - 20, 68 };
+        DrawTextA(memDC, "[+] KERNEL GUARD: PASS", -1, &p1Text, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
+
+        // Debossed Recessed Pill 2
+        RECT pill2{ 258, 74, clientRect.right - 20, 102 };
+        DrawSkeuomorphicPill(memDC, pill2, recessedBg, darkShadow, lightBevel);
+        SelectObject(memDC, badgeFont);
+        SetTextColor(memDC, matrixGreen);
+        RECT p2Text{ 268, 74, clientRect.right - 20, 102 };
+        DrawTextA(memDC, "[+] PCIe DMA SHIELD: PASS", -1, &p2Text, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
+
+        // Debossed Recessed Pill 3
+        RECT pill3{ 258, 108, clientRect.right - 20, 136 };
+        DrawSkeuomorphicPill(memDC, pill3, recessedBg, darkShadow, lightBevel);
+        SelectObject(memDC, badgeFont);
+        SetTextColor(memDC, matrixGreen);
+        RECT p3Text{ 268, 108, clientRect.right - 20, 136 };
+        DrawTextA(memDC, "[+] HYPERVISOR GUARD: PASS", -1, &p3Text, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
+
+        // Debossed Action Pill 4 (Remote Update or Active Status)
+        COLORREF actionBg = m_btnHovered ? matrixGreen : cyanGlow;
+        COLORREF actionTxt = RGB(11, 14, 20);
+
+        HBRUSH actionBrush = CreateSolidBrush(actionBg);
+        FillRect(memDC, &m_updateBtnRect, actionBrush);
+        DeleteObject(actionBrush);
+
+        HPEN btnPen = CreatePen(PS_SOLID, 1, cyanGlow);
+        SelectObject(memDC, btnPen);
+        SelectObject(memDC, nullBrush);
+        Rectangle(memDC, m_updateBtnRect.left, m_updateBtnRect.top, m_updateBtnRect.right, m_updateBtnRect.bottom);
+        DeleteObject(btnPen);
+
+        SelectObject(memDC, badgeFont);
+        SetTextColor(memDC, actionTxt);
+        std::string actionStr = m_hasUpdate ? (m_updateInfo.isDownloading ? "DOWNLOADING..." : "[ UPDATE NOW (20 MB) ]") : "[ PROTECTION ACTIVE ]";
+        DrawTextA(memDC, actionStr.c_str(), -1, &m_updateBtnRect, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+
+        // BOTTOM STATUS BAR (X: 10 to 490, Y: 206 to 246)
+        RECT bottomBarRect{ 10, 206, clientRect.right - 10, 246 };
+        DrawSkeuomorphicCard(memDC, bottomBarRect, RGB(17, 20, 28), lightBevel, darkShadow);
 
         SelectObject(memDC, subFont);
         COLORREF dotCol = m_isViolation ? alertRed : (m_isProtected ? matrixGreen : RGB(255, 200, 0));
 
         HBRUSH dotBr = CreateSolidBrush(dotCol);
-        HPEN nullP = (HPEN)GetStockObject(NULL_PEN);
         SelectObject(memDC, dotBr);
         SelectObject(memDC, nullP);
-        Ellipse(memDC, 24, 187, 34, 197);
+        Ellipse(memDC, 22, 220, 32, 230);
         DeleteObject(dotBr);
 
         SetTextColor(memDC, RGB(241, 245, 249));
         std::string bottomMsg = "Status: " + m_statusText;
-        RECT bottomRect{ 40, 184, clientRect.right - 18, 204 };
+        RECT bottomRect{ 38, 218, clientRect.right - 18, 238 };
         DrawTextA(memDC, bottomMsg.c_str(), -1, &bottomRect, DT_LEFT | DT_SINGLELINE);
 
         DeleteObject(nameFont);
