@@ -209,9 +209,7 @@ Set `cs2ac_language` to one of the bundled language codes, then run `cs2ac_reloa
 
 Keep the webhook URL private. CS2AC never prints it back to the console.
 
-<div align="center">
-<img src="docs/showcase/webhook.png" width="432" alt="CS2AC Discord detection report with player, evidence, punishment, map, and server details">
-</div>
+
 
 <details>
 <summary><strong>Server commands</strong></summary>
