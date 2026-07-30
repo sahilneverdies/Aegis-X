@@ -18,6 +18,7 @@ public:
     ~ExternalDetector() = default;
 
     bool ScanExternalOverlays(DWORD cs2Pid, std::vector<ExternalDetection>& detections);
+    bool ScanExternalProcesses(DWORD cs2Pid, std::vector<ExternalDetection>& detections);
 };
 
 } // namespace cs2ac

@@ -30,6 +30,29 @@ static BOOL CALLBACK EnumWindowsCallback(HWND hwnd, LPARAM lParam) {
     GetWindowTextA(hwnd, titleBuf, sizeof(titleBuf));
     std::string titleStr = titleBuf;
 
+    std::string titleLower = titleStr;
+    std::transform(titleLower.begin(), titleLower.end(), titleLower.begin(), ::tolower);
+    std::string classLower = classStr;
+    std::transform(classLower.begin(), classLower.end(), classLower.begin(), ::tolower);
+
+    // Scan window titles and class names for cheat keywords
+    std::vector<std::string> cheatKeywords = {
+        "cs2-external", "cs2_external", "cs2-esp", "cs2_esp", "esp-recode",
+        "cs2_dumper", "cs2-dumper", "aimbot", "wallhack", "triggerbot",
+        "bhop_script", "bunnyhop", "injector", "dumper", "kiero", "minhook"
+    };
+
+    for (const auto& kw : cheatKeywords) {
+        if (titleLower.find(kw) != std::string::npos || classLower.find(kw) != std::string::npos) {
+            ExternalDetection det{};
+            det.type = "ExternalOverlayDetected";
+            det.description = "Unauthorized external cheat window detected: Title='" + titleStr + "'";
+            det.windowHandle = hwnd;
+            params->detections->push_back(det);
+            return TRUE;
+        }
+    }
+
     // Whitelist official Steam / Windows / System / Helper window classes & false-positive classes like 'wa'
     if (classStr == "wa" || classStr == "SysShadow" || classStr == "tooltips_class32" ||
         classStr == "IME" || classStr == "MSCTFIME UI" || classStr == "FocusProxy" ||
@@ -91,8 +114,9 @@ static BOOL CALLBACK EnumWindowsCallback(HWND hwnd, LPARAM lParam) {
     }
 
     LONG exStyle = GetWindowLong(hwnd, GWL_EXSTYLE);
+    LONG style = GetWindowLong(hwnd, GWL_STYLE);
 
-    if ((exStyle & WS_EX_TOPMOST) && ((exStyle & WS_EX_TRANSPARENT) || (exStyle & WS_EX_LAYERED))) {
+    if ((exStyle & WS_EX_TOPMOST) || (exStyle & WS_EX_TRANSPARENT) || (exStyle & WS_EX_LAYERED) || (style & WS_POPUP)) {
         RECT winRect;
         if (GetWindowRect(hwnd, &winRect)) {
             if (winRect.left < params->cs2Rect.right && winRect.right > params->cs2Rect.left &&
@@ -110,9 +134,57 @@ static BOOL CALLBACK EnumWindowsCallback(HWND hwnd, LPARAM lParam) {
     return TRUE;
 }
 
+bool ExternalDetector::ScanExternalProcesses(DWORD cs2Pid, std::vector<ExternalDetection>& detections) {
+    HANDLE hSnap = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+    if (hSnap == INVALID_HANDLE_VALUE) return false;
+
+    PROCESSENTRY32W pe{};
+    pe.dwSize = sizeof(pe);
+
+    std::vector<std::string> cheatKeywords = {
+        "cs2-external", "cs2_external", "cs2-esp", "cs2_esp", "esp-recode",
+        "cs2_dumper", "cs2-dumper", "aimbot", "wallhack", "triggerbot",
+        "bhop_script", "bunnyhop", "injector", "dumper", "kiero", "minhook"
+    };
+
+    DWORD currPid = GetCurrentProcessId();
+
+    if (Process32FirstW(hSnap, &pe)) {
+        do {
+            if (pe.th32ProcessID == cs2Pid || pe.th32ProcessID == currPid || pe.th32ProcessID == 0) {
+                continue;
+            }
+
+            char szExeA[MAX_PATH]{};
+            WideCharToMultiByte(CP_ACP, 0, pe.szExeFile, -1, szExeA, sizeof(szExeA), NULL, NULL);
+            std::string exeName = szExeA;
+            std::string exeLower = exeName;
+            std::transform(exeLower.begin(), exeLower.end(), exeLower.begin(), ::tolower);
+
+            for (const auto& kw : cheatKeywords) {
+                if (exeLower.find(kw) != std::string::npos) {
+                    ExternalDetection det{};
+                    det.type = "ExternalCheatProcessDetected";
+                    det.description = "Unauthorized external cheat process detected running on system (" + exeName + ").";
+                    det.windowHandle = NULL;
+                    detections.push_back(det);
+                    break;
+                }
+            }
+        } while (Process32NextW(hSnap, &pe));
+    }
+
+    CloseHandle(hSnap);
+    return !detections.empty();
+}
+
 bool ExternalDetector::ScanExternalOverlays(DWORD cs2Pid, std::vector<ExternalDetection>& detections) {
     if (cs2Pid == 0) return false;
 
+    // 1. Scan external processes for cheat executables
+    ScanExternalProcesses(cs2Pid, detections);
+
+    // 2. Scan active windows for overlays
     HWND hCS2Window = NULL;
     HWND hCurr = GetTopWindow(NULL);
 
@@ -126,13 +198,13 @@ bool ExternalDetector::ScanExternalOverlays(DWORD cs2Pid, std::vector<ExternalDe
         hCurr = GetNextWindow(hCurr, GW_HWNDNEXT);
     }
 
-    if (!hCS2Window) return false;
-
-    RECT cs2Rect;
-    if (!GetWindowRect(hCS2Window, &cs2Rect)) return false;
-
-    EnumParams params{ cs2Pid, cs2Rect, &detections };
-    EnumWindows(EnumWindowsCallback, reinterpret_cast<LPARAM>(&params));
+    if (hCS2Window) {
+        RECT cs2Rect;
+        if (GetWindowRect(hCS2Window, &cs2Rect)) {
+            EnumParams params{ cs2Pid, cs2Rect, &detections };
+            EnumWindows(EnumWindowsCallback, reinterpret_cast<LPARAM>(&params));
+        }
+    }
 
     return !detections.empty();
 }
