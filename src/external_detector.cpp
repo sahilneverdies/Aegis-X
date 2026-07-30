@@ -26,10 +26,17 @@ static BOOL CALLBACK EnumWindowsCallback(HWND hwnd, LPARAM lParam) {
     GetClassNameA(hwnd, className, sizeof(className));
     std::string classStr = className;
 
-    // Whitelist official Steam / Windows / System window classes
-    if (classStr == "Valve_Steam_Overlay" || classStr == "vguiPopupWindow" || classStr == "Steam" ||
+    char titleBuf[256]{};
+    GetWindowTextA(hwnd, titleBuf, sizeof(titleBuf));
+    std::string titleStr = titleBuf;
+
+    // Whitelist official Steam / Windows / System / Helper window classes & false-positive classes like 'wa'
+    if (classStr == "wa" || classStr == "SysShadow" || classStr == "tooltips_class32" ||
+        classStr == "IME" || classStr == "MSCTFIME UI" || classStr == "FocusProxy" ||
+        classStr == "Valve_Steam_Overlay" || classStr == "vguiPopupWindow" || classStr == "Steam" ||
         classStr == "SteamOverlayHost" || classStr == "CursorVisualClass" || classStr == "ThumbnailDeviceHelperWnd" ||
-        classStr == "Button" || classStr == "Shell_TrayWnd" || classStr == "Progman" || classStr == "WorkerW") {
+        classStr == "Button" || classStr == "Shell_TrayWnd" || classStr == "Progman" || classStr == "WorkerW" ||
+        classStr.length() <= 3 || titleStr == "wa") {
         return TRUE;
     }
 
@@ -37,11 +44,21 @@ static BOOL CALLBACK EnumWindowsCallback(HWND hwnd, LPARAM lParam) {
     HANDLE hProc = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, windowPid);
     if (hProc) {
         char exePath[MAX_PATH]{};
-        if (GetModuleFileNameExA(hProc, NULL, exePath, sizeof(exePath)) > 0) {
+        DWORD szPath = sizeof(exePath);
+        bool gotPath = false;
+
+        // Query full process image name
+        if (QueryFullProcessImageNameA(hProc, 0, exePath, &szPath)) {
+            gotPath = true;
+        } else if (GetModuleFileNameExA(hProc, NULL, exePath, sizeof(exePath)) > 0) {
+            gotPath = true;
+        }
+
+        if (gotPath) {
             std::string procPath = exePath;
             std::transform(procPath.begin(), procPath.end(), procPath.begin(), ::tolower);
 
-            // Whitelist Windows system processes & legitimate overlays (Steam, Discord, NVIDIA, AMD)
+            // Whitelist Windows system processes, IDEs, browsers, WhatsApp, Discord, Steam, NVIDIA, AMD
             if (procPath.find("explorer.exe") != std::string::npos ||
                 procPath.find("dwm.exe") != std::string::npos ||
                 procPath.find("svchost.exe") != std::string::npos ||
@@ -51,13 +68,21 @@ static BOOL CALLBACK EnumWindowsCallback(HWND hwnd, LPARAM lParam) {
                 procPath.find("startmenuexperiencehost.exe") != std::string::npos ||
                 procPath.find("textinputhost.exe") != std::string::npos ||
                 procPath.find("applicationframehost.exe") != std::string::npos ||
+                procPath.find("antigravity") != std::string::npos ||
+                procPath.find("code.exe") != std::string::npos ||
+                procPath.find("devenv.exe") != std::string::npos ||
+                procPath.find("whatsapp") != std::string::npos ||
+                procPath.find("chrome.exe") != std::string::npos ||
+                procPath.find("msedge.exe") != std::string::npos ||
+                procPath.find("firefox.exe") != std::string::npos ||
+                procPath.find("spotify.exe") != std::string::npos ||
                 procPath.find("steam.exe") != std::string::npos ||
                 procPath.find("gameoverlayui.exe") != std::string::npos ||
                 procPath.find("steamwebhelper.exe") != std::string::npos ||
                 procPath.find("discord.exe") != std::string::npos ||
-                procPath.find("nvidia share.exe") != std::string::npos ||
+                procPath.find("nvidia") != std::string::npos ||
                 procPath.find("nvcontainer.exe") != std::string::npos ||
-                procPath.find("radeonsoftware.exe") != std::string::npos) {
+                procPath.find("radeon") != std::string::npos) {
                 CloseHandle(hProc);
                 return TRUE;
             }
@@ -73,12 +98,9 @@ static BOOL CALLBACK EnumWindowsCallback(HWND hwnd, LPARAM lParam) {
             if (winRect.left < params->cs2Rect.right && winRect.right > params->cs2Rect.left &&
                 winRect.top < params->cs2Rect.bottom && winRect.bottom > params->cs2Rect.top) {
 
-                char title[256]{};
-                GetWindowTextA(hwnd, title, sizeof(title));
-
                 ExternalDetection det{};
                 det.type = "ExternalOverlayDetected";
-                det.description = "Unauthorized external transparent overlay window detected: Class='" + std::string(className) + "', Title='" + std::string(title) + "'";
+                det.description = "Unauthorized external transparent overlay window detected over game screen";
                 det.windowHandle = hwnd;
                 params->detections->push_back(det);
             }
