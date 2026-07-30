@@ -508,7 +508,7 @@ void AegisXWindow::OnPaint(HWND hwnd) {
             SelectObject(memDC, badgeFont);
             SetTextColor(memDC, RGB(255, 200, 0));
             RECT upTag{ 330, 84, clientRect.right - 18, 102 };
-            std::string upText = "⚡ NEW UPDATE (v" + m_updateInfo.latestVersion + " - " + std::to_string(m_updateInfo.updateSizeMB) + " MB)";
+            std::string upText = "[!] NEW UPDATE (v" + m_updateInfo.latestVersion + " - " + std::to_string(m_updateInfo.updateSizeMB) + " MB)";
             DrawTextA(memDC, upText.c_str(), -1, &upTag, DT_LEFT | DT_SINGLELINE);
 
             // Render Interactive [ INSTALL UPDATE ] Button
