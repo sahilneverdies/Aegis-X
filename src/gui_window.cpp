@@ -503,18 +503,18 @@ void AegisXWindow::OnPaint(HWND hwnd) {
             Rectangle(memDC, 22, 22, 74, 74);
             DeleteObject(cyanPen);
 
-            // Player Persona Name (Display Name)
+            // Player Steam Username (Account Name)
             SelectObject(memDC, nameFont);
             SetTextColor(memDC, RGB(255, 255, 255));
             RECT nameRect{ 82, 22, 232, 44 };
-            DrawTextA(memDC, m_profile.personaName.c_str(), -1, &nameRect, DT_LEFT | DT_SINGLELINE);
+            std::string displayName = m_profile.accountName.empty() ? m_profile.personaName : m_profile.accountName;
+            DrawTextA(memDC, displayName.c_str(), -1, &nameRect, DT_LEFT | DT_SINGLELINE);
 
-            // Steam Account Name Tag (e.g. ACCOUNT: sahil12119)
+            // Steam Authentication Badge
             SelectObject(memDC, badgeFont);
             SetTextColor(memDC, cyanGlow);
             RECT tagRect{ 82, 44, 232, 60 };
-            std::string accTag = "[ ACCOUNT: " + (m_profile.accountName.empty() ? m_profile.personaName : m_profile.accountName) + " ]";
-            DrawTextA(memDC, accTag.c_str(), -1, &tagRect, DT_LEFT | DT_SINGLELINE);
+            DrawTextA(memDC, "[ STEAM AUTHENTICATED ]", -1, &tagRect, DT_LEFT | DT_SINGLELINE);
 
             // ID64 Subtitle
             SelectObject(memDC, subFont);
