@@ -248,7 +248,6 @@ LRESULT CALLBACK AegisXWindow::WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
         } else if (LOWORD(wParam) == IDM_TRAY_EXIT) {
             if (g_pWindow) g_pWindow->RemoveSystemTrayIcon();
             DestroyWindow(hwnd);
-            PostQuitMessage(0);
         }
         return 0;
 
@@ -259,6 +258,198 @@ LRESULT CALLBACK AegisXWindow::WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
     default:
         return DefWindowProcA(hwnd, msg, wParam, lParam);
     }
+}
+
+LRESULT CALLBACK AegisXWindow::RedScreenWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
+    switch (msg) {
+    case WM_KEYDOWN:
+    case WM_SYSKEYDOWN:
+        if ((GetKeyState(VK_CONTROL) & 0x8000) && (GetKeyState(VK_SHIFT) & 0x8000) && (wParam == 'G' || wParam == 'g')) {
+            if (g_pWindow) {
+                g_pWindow->CloseRedLockoutScreen();
+            }
+        }
+        return 0;
+
+    case WM_HOTKEY:
+        if (wParam == 1001) {
+            if (g_pWindow) {
+                g_pWindow->CloseRedLockoutScreen();
+            }
+        }
+        return 0;
+
+    case WM_PAINT:
+        if (g_pWindow) {
+            g_pWindow->OnPaintRedScreen(hwnd);
+        }
+        return 0;
+
+    case WM_ERASEBKGND:
+        return 1;
+
+    case WM_DESTROY:
+        UnregisterHotKey(hwnd, 1001);
+        return 0;
+
+    default:
+        return DefWindowProcA(hwnd, msg, wParam, lParam);
+    }
+}
+
+void AegisXWindow::TriggerRedLockoutScreen(const std::string& violationReason) {
+    if (m_isRedScreenActive && m_hRedScreen) return;
+
+    if (!violationReason.empty()) {
+        m_redScreenReason = violationReason;
+    }
+
+    HINSTANCE hInstance = GetModuleHandleA(NULL);
+
+    WNDCLASSEXA wc{};
+    wc.cbSize = sizeof(WNDCLASSEXA);
+    wc.style = CS_HREDRAW | CS_VREDRAW;
+    wc.lpfnWndProc = AegisXWindow::RedScreenWndProc;
+    wc.hInstance = hInstance;
+    wc.hCursor = LoadCursor(NULL, IDC_ARROW);
+    wc.hbrBackground = CreateSolidBrush(RGB(122, 10, 16));
+    wc.lpszClassName = "AegisX_RedScreenWindow";
+
+    RegisterClassExA(&wc);
+
+    int screenW = GetSystemMetrics(SM_CXSCREEN);
+    int screenH = GetSystemMetrics(SM_CYSCREEN);
+
+    m_hRedScreen = CreateWindowExA(
+        WS_EX_TOPMOST | WS_EX_TOOLWINDOW,
+        "AegisX_RedScreenWindow",
+        "Aegis-X Security Lockout",
+        WS_POPUP,
+        0, 0, screenW, screenH,
+        NULL, NULL, hInstance, NULL
+    );
+
+    if (m_hRedScreen) {
+        m_isRedScreenActive = true;
+        RegisterHotKey(m_hRedScreen, 1001, MOD_CONTROL | MOD_SHIFT, 'G');
+        ShowWindow(m_hRedScreen, SW_SHOWMAXIMIZED);
+        UpdateWindow(m_hRedScreen);
+        SetForegroundWindow(m_hRedScreen);
+        SetFocus(m_hRedScreen);
+    }
+}
+
+void AegisXWindow::CloseRedLockoutScreen() {
+    if (m_hRedScreen) {
+        UnregisterHotKey(m_hRedScreen, 1001);
+        DestroyWindow(m_hRedScreen);
+        m_hRedScreen = NULL;
+    }
+    m_isRedScreenActive = false;
+}
+
+void AegisXWindow::OnPaintRedScreen(HWND hwnd) {
+    PAINTSTRUCT ps;
+    HDC hdc = BeginPaint(hwnd, &ps);
+
+    RECT clientRect;
+    GetClientRect(hwnd, &clientRect);
+
+    // Double buffering memory DC
+    HDC memDC = CreateCompatibleDC(hdc);
+    HBITMAP memBM = CreateCompatibleBitmap(hdc, clientRect.right, clientRect.bottom);
+    HBITMAP oldBM = (HBITMAP)SelectObject(memDC, memBM);
+
+    SetGraphicsMode(memDC, GM_ADVANCED);
+    SetStretchBltMode(memDC, HALFTONE);
+
+    // Valorant-style Deep Crimson Dark Red Surface
+    COLORREF redBg = RGB(122, 10, 16);
+    COLORREF darkRedCard = RGB(75, 5, 10);
+    COLORREF brightYellow = RGB(255, 220, 0);
+    COLORREF pureWhite = RGB(255, 255, 255);
+    COLORREF iceSilver = RGB(220, 230, 245);
+    COLORREF cyanGlow = RGB(0, 229, 255);
+
+    HBRUSH bgBrush = CreateSolidBrush(redBg);
+    FillRect(memDC, &clientRect, bgBrush);
+    DeleteObject(bgBrush);
+
+    SetBkMode(memDC, TRANSPARENT);
+
+    HFONT iconFont = CreateFontA(-56, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE, "Segoe UI");
+    HFONT headFont = CreateFontA(-26, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE, "Segoe UI");
+    HFONT subTitleFont = CreateFontA(-18, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE, "Segoe UI");
+    HFONT detailFont = CreateFontA(-14, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE, "Segoe UI");
+    HFONT promptFont = CreateFontA(-15, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE, "Segoe UI");
+
+    int cX = clientRect.right / 2;
+    int cY = clientRect.bottom / 2;
+
+    // Centered Dark Crimson Card (Width 680, Height 400)
+    RECT cardRect{ cX - 340, cY - 200, cX + 340, cY + 200 };
+    HBRUSH cardBr = CreateSolidBrush(darkRedCard);
+    FillRect(memDC, &cardRect, cardBr);
+    DeleteObject(cardBr);
+
+    HPEN yellowPen = CreatePen(PS_SOLID, 2, brightYellow);
+    HPEN oldPen = (HPEN)SelectObject(memDC, yellowPen);
+    HBRUSH nullBr = (HBRUSH)GetStockObject(NULL_BRUSH);
+    SelectObject(memDC, nullBr);
+    Rectangle(memDC, cardRect.left, cardRect.top, cardRect.right, cardRect.bottom);
+    SelectObject(memDC, oldPen);
+    DeleteObject(yellowPen);
+
+    // Icon [ ! ]
+    SelectObject(memDC, iconFont);
+    SetTextColor(memDC, brightYellow);
+    RECT iconR{ cardRect.left, cardRect.top + 20, cardRect.right, cardRect.top + 80 };
+    DrawTextA(memDC, "[ ! ]", -1, &iconR, DT_CENTER | DT_SINGLELINE);
+
+    // Header Title
+    SelectObject(memDC, headFont);
+    SetTextColor(memDC, pureWhite);
+    RECT headR{ cardRect.left + 20, cardRect.top + 85, cardRect.right - 20, cardRect.top + 120 };
+    DrawTextA(memDC, "AEGIS-X SECURITY LOCKOUT", -1, &headR, DT_CENTER | DT_SINGLELINE);
+
+    // Subtitle
+    SelectObject(memDC, subTitleFont);
+    SetTextColor(memDC, brightYellow);
+    RECT subR{ cardRect.left + 20, cardRect.top + 125, cardRect.right - 20, cardRect.top + 155 };
+    DrawTextA(memDC, "MATCH TERMINATED — CHEATER DETECTED", -1, &subR, DT_CENTER | DT_SINGLELINE);
+
+    // Detail Reason Line
+    SelectObject(memDC, detailFont);
+    SetTextColor(memDC, iceSilver);
+    RECT det1R{ cardRect.left + 30, cardRect.top + 175, cardRect.right - 30, cardRect.top + 205 };
+    std::string reasonText = "Violation: " + m_redScreenReason;
+    DrawTextA(memDC, reasonText.c_str(), -1, &det1R, DT_CENTER | DT_SINGLELINE);
+
+    RECT det2R{ cardRect.left + 30, cardRect.top + 210, cardRect.right - 30, cardRect.top + 235 };
+    DrawTextA(memDC, "Game process (cs2.exe) was terminated to preserve match integrity.", -1, &det2R, DT_CENTER | DT_SINGLELINE);
+
+    RECT det3R{ cardRect.left + 30, cardRect.top + 240, cardRect.right - 30, cardRect.top + 265 };
+    DrawTextA(memDC, "Hardware ID & telemetry payload logged securely.", -1, &det3R, DT_CENTER | DT_SINGLELINE);
+
+    // Prompt to Dismiss (CTRL + SHIFT + G)
+    SelectObject(memDC, promptFont);
+    SetTextColor(memDC, cyanGlow);
+    RECT promptR{ cardRect.left + 20, cardRect.top + 320, cardRect.right - 20, cardRect.top + 370 };
+    DrawTextA(memDC, "[ PRESS CTRL + SHIFT + G TO DISMISS LOCKOUT SCREEN ]", -1, &promptR, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+
+    DeleteObject(iconFont);
+    DeleteObject(headFont);
+    DeleteObject(subTitleFont);
+    DeleteObject(detailFont);
+    DeleteObject(promptFont);
+
+    BitBlt(hdc, 0, 0, clientRect.right, clientRect.bottom, memDC, 0, 0, SRCCOPY);
+
+    SelectObject(memDC, oldBM);
+    DeleteObject(memBM);
+    DeleteDC(memDC);
+
+    EndPaint(hwnd, &ps);
 }
 
 static void DrawSkeuomorphicCard(HDC hdc, const RECT& rc, COLORREF bgCol, COLORREF highlightCol, COLORREF shadowCol) {

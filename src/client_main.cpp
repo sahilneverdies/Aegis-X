@@ -56,6 +56,7 @@ void AbortGameAndNotifyUser(const std::vector<cs2ac::DetectionDetail>& detection
 
     std::string firstDesc = detections.empty() ? "Unauthorized cheat behavior detected." : detections[0].description;
     g_guiWindow.UpdateStatus("Security Violation  |  cs2.exe terminated", false, true, firstDesc);
+    g_guiWindow.TriggerRedLockoutScreen(firstDesc);
 
     std::string alertMsg = "Aegis-X Protection Suite (by Sahil)\n\n";
     alertMsg += "Game launch blocked or terminated due to security violation:\n\n";

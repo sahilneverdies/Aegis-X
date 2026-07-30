@@ -33,12 +33,20 @@ public:
     void CreateSystemTrayIcon();
     void RemoveSystemTrayIcon();
     void TriggerInstallUpdate();
+    void TriggerRedLockoutScreen(const std::string& violationReason = "");
+    void CloseRedLockoutScreen();
 
     static SteamProfileInfo FetchActiveSteamProfile();
 
 private:
     static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
+    static LRESULT CALLBACK RedScreenWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
     void OnPaint(HWND hwnd);
+    void OnPaintRedScreen(HWND hwnd);
+
+    HWND m_hRedScreen = NULL;
+    bool m_isRedScreenActive = false;
+    std::string m_redScreenReason = "Unauthorized cheat execution detected.";
 
     HWND m_hwnd = NULL;
     NOTIFYICONDATAA m_nid = {};
