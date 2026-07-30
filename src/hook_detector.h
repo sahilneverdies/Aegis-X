@@ -34,8 +34,7 @@ public:
     bool ScanUnbackedExecutableMemory(HANDLE hProcess, std::vector<DetectionDetail>& detections);
     bool ScanLoadedModules(HANDLE hProcess, std::vector<DetectionDetail>& detections);
 
-private:
-    bool IsAddressInValidModule(HANDLE hProcess, uintptr_t address, std::string& outModuleName);
+    static bool IsAddressInValidModule(HANDLE hProcess, uintptr_t address, std::string& outModuleName);
 };
 
 } // namespace cs2ac

@@ -1,4 +1,5 @@
 #include "memory_guard.h"
+#include "hook_detector.h"
 #include <psapi.h>
 
 namespace cs2ac {
@@ -21,7 +22,6 @@ bool MemoryGuard::RegisterModuleSection(HANDLE hProcess, HMODULE hModule, const 
     uintptr_t base = reinterpret_cast<uintptr_t>(modInfo.lpBaseOfDll);
     size_t size = modInfo.SizeOfImage;
 
-    // Read initial code bytes
     std::vector<uint8_t> buffer(size);
     SIZE_T bytesRead = 0;
 
@@ -34,6 +34,7 @@ bool MemoryGuard::RegisterModuleSection(HANDLE hProcess, HMODULE hModule, const 
     section.baseAddress = base;
     section.sectionSize = bytesRead;
     section.originalCRC32 = CalculateCRC32(buffer.data(), bytesRead);
+    section.initialBytes = buffer;
 
     m_monitoredSections.push_back(section);
     return true;
@@ -57,19 +58,46 @@ bool MemoryGuard::VerifyCodeIntegrity(HANDLE hProcess, std::string& tamperedModu
         }
     }
 
-    for (const auto& section : m_monitoredSections) {
+    for (auto& section : m_monitoredSections) {
         std::vector<uint8_t> buffer(section.sectionSize);
         SIZE_T bytesRead = 0;
 
         if (ReadProcessMemory(hProcess, reinterpret_cast<LPCVOID>(section.baseAddress), buffer.data(), section.sectionSize, &bytesRead) && bytesRead > 0) {
             uint32_t currentCRC = CalculateCRC32(buffer.data(), bytesRead);
             if (currentCRC != section.originalCRC32) {
-                tamperedModuleName = section.moduleName;
-                return false; // Integrity violation detected!
+                // Inspect byte differences for overlay vs unauthorized cheat patches
+                bool unauthorizedTamper = false;
+                for (size_t i = 0; i < section.sectionSize && i < buffer.size() && i < section.initialBytes.size(); i++) {
+                    if (buffer[i] != section.initialBytes[i]) {
+                        uintptr_t patchAddr = section.baseAddress + i;
+                        if (buffer[i] == 0xE9 && (i + 4) < buffer.size()) { // JMP rel32
+                            int32_t relOffset = 0;
+                            memcpy(&relOffset, &buffer[i + 1], sizeof(int32_t));
+                            uintptr_t destAddr = patchAddr + 5 + relOffset;
+                            std::string targetMod;
+                            if (!HookDetector::IsAddressInValidModule(hProcess, destAddr, targetMod)) {
+                                unauthorizedTamper = true;
+                                break;
+                            }
+                        } else if (buffer[i] == 0x90 || buffer[i] == 0xC3) { // NOP or RET byte patch
+                            unauthorizedTamper = true;
+                            break;
+                        }
+                    }
+                }
+
+                if (unauthorizedTamper) {
+                    tamperedModuleName = section.moduleName;
+                    return false; // Confirmed unauthorized cheat memory patch!
+                } else {
+                    // Update baseline CRC to account for legitimate Steam / OS overlay patches
+                    section.originalCRC32 = currentCRC;
+                    section.initialBytes = buffer;
+                }
             }
         }
     }
-    return true; // All code sections intact
+    return true;
 }
 
 } // namespace cs2ac

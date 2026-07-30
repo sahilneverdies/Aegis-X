@@ -12,6 +12,7 @@ struct CodeSectionIntegrity {
     uintptr_t baseAddress;
     size_t sectionSize;
     uint32_t originalCRC32;
+    std::vector<uint8_t> initialBytes;
 };
 
 class MemoryGuard {
