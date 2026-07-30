@@ -36,7 +36,7 @@ static BOOL CALLBACK EnumWindowsCallback(HWND hwnd, LPARAM lParam) {
         classStr == "Valve_Steam_Overlay" || classStr == "vguiPopupWindow" || classStr == "Steam" ||
         classStr == "SteamOverlayHost" || classStr == "CursorVisualClass" || classStr == "ThumbnailDeviceHelperWnd" ||
         classStr == "Button" || classStr == "Shell_TrayWnd" || classStr == "Progman" || classStr == "WorkerW" ||
-        classStr.length() <= 3 || titleStr == "wa") {
+        titleStr == "wa") {
         return TRUE;
     }
 
