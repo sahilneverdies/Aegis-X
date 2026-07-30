@@ -13,7 +13,11 @@ enum class ScanResult {
     VMTHookDetected,
     UnbackedExecutableMemory,
     BlacklistedModuleLoaded,
-    DebuggerDetected
+    DebuggerDetected,
+    BhopDetected,
+    AimbotDetected,
+    AimlockDetected,
+    AntiaimDetected
 };
 
 struct DetectionDetail {

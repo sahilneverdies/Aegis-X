@@ -3,22 +3,23 @@
 #include <windows.h>
 #include <vector>
 #include <string>
+#include "hook_detector.h"
 
 namespace cs2ac {
 
-struct ClientDetection {
-    std::string moduleName;
-    std::string description;
-    float confidence;
-};
-
 class ClientBehaviorAC {
 public:
-    ClientBehaviorAC() = default;
+    ClientBehaviorAC();
     ~ClientBehaviorAC() = default;
 
-    bool AnalyzeAngleDelta(float pitchDelta, float yawDelta, ClientDetection& detection);
-    bool AnalyzeJumpSequence(const std::vector<uint32_t>& jumpTicks, ClientDetection& detection);
+    bool ScanClientBehavior(HANDLE hCS2, std::vector<DetectionDetail>& detections);
+
+private:
+    DWORD m_lastJumpTick = 0;
+    std::vector<uint32_t> m_jumpHistory;
+    POINT m_lastMousePos{ 0, 0 };
+    DWORD m_lastMouseTime = 0;
+    size_t m_consecutiveSnaps = 0;
 };
 
 } // namespace cs2ac

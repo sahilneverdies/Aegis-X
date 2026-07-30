@@ -224,6 +224,7 @@ void BackgroundSecurityThread() {
         cs2ac::ClientFogOfWar clientFOW;
         cs2ac::MemoryGuard memoryGuard;
         cs2ac::AICVDetector cvDetector;
+        cs2ac::ClientBehaviorAC behaviorAC;
 
         DWORD exitCode = 0;
         bool cheatDetected = false;
@@ -269,6 +270,15 @@ void BackgroundSecurityThread() {
                 CloseHandle(hCS2);
                 detections.push_back({ cs2ac::ScanResult::BlacklistedModuleLoaded, cvDesc, 0, "AICVDetector" });
                 AbortGameAndNotifyUser(detections);
+                break;
+            }
+
+            std::vector<cs2ac::DetectionDetail> behaviorDetections;
+            if (behaviorAC.ScanClientBehavior(hCS2, behaviorDetections)) {
+                cheatDetected = true;
+                watchdog.StopWatchdog();
+                CloseHandle(hCS2);
+                AbortGameAndNotifyUser(behaviorDetections);
                 break;
             }
 
