@@ -19,6 +19,10 @@
 #include "anti_tamper.h"
 #include "watchdog.h"
 
+#include "gui_window.h"
+
+static aegisx::AegisXWindow g_guiWindow;
+
 DWORD FindCS2ProcessID() {
     HANDLE hSnap = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
     if (hSnap == INVALID_HANDLE_VALUE) return 0;
@@ -50,6 +54,9 @@ void AbortGameAndNotifyUser(const std::vector<cs2ac::DetectionDetail>& detection
         }
     }
 
+    std::string firstDesc = detections.empty() ? "Unauthorized cheat behavior detected." : detections[0].description;
+    g_guiWindow.UpdateStatus("Security Violation  |  cs2.exe terminated", false, true, firstDesc);
+
     std::string alertMsg = "Aegis-X Protection Suite (by Sahil)\n\n";
     alertMsg += "Game launch blocked or terminated due to security violation:\n\n";
 
@@ -69,19 +76,14 @@ void AbortGameAndNotifyUser(const std::vector<cs2ac::DetectionDetail>& detection
     alertMsg += "\nPlease disable any unauthorized internal cheats, external overlays, DMA cards, hypervisors, or hooks and try again.";
 
     MessageBoxA(
-        NULL,
+        g_guiWindow.GetHWND(),
         alertMsg.c_str(),
         "Aegis-X Anti-Cheat - Security Violation Detected",
         MB_OK | MB_ICONERROR | MB_SYSTEMMODAL
     );
 }
 
-int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow) {
-    // 0. Enable unbypassable process self-protection & handle DACL restrictions
-    aegisx::AntiTamper::EnableSelfProtection();
-    cs2ac::AntiDebug::HideCurrentThread();
-
-    // Outer continuous daemon loop - Aegis-X stays running 24/7 in the background
+void BackgroundSecurityThread() {
     while (true) {
         // 1. Check for active debuggers & hardware breakpoints
         if (cs2ac::AntiDebug::IsDebuggerPresentCheck() || cs2ac::AntiDebug::CheckHardwareBreakpoints()) {
@@ -93,7 +95,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
             continue;
         }
 
-        // 2. Scan PCIe bus for hardware DMA cards (CaptainDMA, EnigmaDMA, Screamer, FPGA boards)
+        // 2. Scan PCIe bus for hardware DMA cards
         cs2ac::DMAShield dmaShield;
         std::vector<cs2ac::DMADeviceMatch> dmaMatches;
         if (dmaShield.ScanPCIeDMADevices(dmaMatches)) {
@@ -106,7 +108,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
             continue;
         }
 
-        // 3. Check for Type-1 / Type-2 Hypervisors & VM-Exit timing latency
+        // 3. Check for Type-1 / Type-2 Hypervisors
         cs2ac::HypervisorDetector hypervisorDetector;
         std::string hvVendor;
         if (hypervisorDetector.CheckHypervisorCPUID(hvVendor)) {
@@ -118,7 +120,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
             continue;
         }
 
-        // 4. Scan kernel drivers for blacklisted BYOVD exploit drivers
+        // 4. Scan kernel drivers for BYOVD exploit drivers
         cs2ac::KernelGuard kernelGuard;
         std::vector<cs2ac::VulnerableDriverMatch> driverDetections;
         if (kernelGuard.ScanBYOVDDrivers(driverDetections)) {
@@ -131,7 +133,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
             continue;
         }
 
-        // 5. Continuous Auto-Start Daemon Loop (Polls for CS2 launch in background)
+        // 5. Poll for CS2 process launch
+        g_guiWindow.UpdateStatus("Connected  |  Waiting for Counter-Strike 2 to launch...", false, false);
         DWORD cs2Pid = 0;
         while (cs2Pid == 0) {
             cs2Pid = FindCS2ProcessID();
@@ -144,6 +147,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
             std::this_thread::sleep_for(std::chrono::seconds(1));
             continue;
         }
+
+        g_guiWindow.UpdateStatus("Connected  |  CS2 Real-Time Protection Active (cs2.exe PID: " + std::to_string(cs2Pid) + ")", true, false);
 
         // Apply process handle mitigations & start watchdog heartbeat monitor
         kernelGuard.EnforceHandleRestrictions(hCS2);
@@ -162,7 +167,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         while (GetExitCodeProcess(hCS2, &exitCode) && exitCode == STILL_ACTIVE) {
             std::vector<cs2ac::DetectionDetail> detections;
 
-            // Scan internal hooks, VMT hijacking, & RWX unbacked memory
             if (detector.RunFullScan(hCS2, detections)) {
                 cheatDetected = true;
                 watchdog.StopWatchdog();
@@ -171,7 +175,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
                 break;
             }
 
-            // Verify code section integrity against byte patching
             std::string tamperedModule;
             if (!memoryGuard.VerifyCodeIntegrity(hCS2, tamperedModule)) {
                 cheatDetected = true;
@@ -182,7 +185,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
                 break;
             }
 
-            // Scan external transparent overlays placed over CS2
             std::vector<cs2ac::ExternalDetection> extDetections;
             if (extDetector.ScanExternalOverlays(cs2Pid, extDetections)) {
                 cheatDetected = true;
@@ -196,7 +198,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
                 break;
             }
 
-            // Scan DXGI Desktop Duplication API hooks for AI vision aimbots
             std::string cvDesc;
             if (cvDetector.ScanDXGIDesktopDuplication(cs2Pid, cvDesc)) {
                 cheatDetected = true;
@@ -207,9 +208,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
                 break;
             }
 
-            // Update client Fog-Of-War culling
             (void)clientFOW;
-
             std::this_thread::sleep_for(std::chrono::milliseconds(50));
         }
 
@@ -218,8 +217,29 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
             CloseHandle(hCS2);
         }
 
-        // Brief sleep before resetting daemon loop for next CS2 launch
         std::this_thread::sleep_for(std::chrono::seconds(1));
+    }
+}
+
+int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow) {
+    // 0. Enable unbypassable process self-protection & handle DACL restrictions
+    aegisx::AntiTamper::EnableSelfProtection();
+    cs2ac::AntiDebug::HideCurrentThread();
+
+    // 1. Create Aegis-X Client GUI Window
+    if (!g_guiWindow.CreateAegisWindow(hInstance)) {
+        return 1;
+    }
+
+    // 2. Start background anti-cheat security thread
+    std::thread bgThread(BackgroundSecurityThread);
+    bgThread.detach();
+
+    // 3. Win32 Message Loop
+    MSG msg;
+    while (GetMessageA(&msg, NULL, 0, 0)) {
+        TranslateMessage(&msg);
+        DispatchMessageA(&msg);
     }
 
     return 0;

@@ -34,6 +34,8 @@ add_executable(AegisX_ClientGuard WIN32
     src/anti_tamper.h
     src/watchdog.cpp
     src/watchdog.h
+    src/gui_window.cpp
+    src/gui_window.h
 )
 
 target_include_directories(AegisX_ClientGuard PRIVATE
@@ -44,6 +46,8 @@ target_link_libraries(AegisX_ClientGuard PRIVATE
     psapi
     advapi32
     user32
+    gdi32
+    dwmapi
     shell32
     setupapi
 )
