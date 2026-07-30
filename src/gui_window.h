@@ -13,15 +13,22 @@ struct SteamProfileInfo {
     bool isLoggedIn = true;
 };
 
+#define WM_TRAYICON (WM_USER + 1)
+#define IDM_TRAY_RESTORE 2001
+#define IDM_TRAY_EXIT 2002
+
 class AegisXWindow {
 public:
     AegisXWindow() = default;
-    ~AegisXWindow() = default;
+    ~AegisXWindow();
 
     bool CreateAegisWindow(HINSTANCE hInstance);
     void UpdateStatus(const std::string& statusText, bool isProtected, bool isViolation = false, const std::string& violationDetail = "");
     void MessageLoop();
     HWND GetHWND() const { return m_hwnd; }
+
+    void CreateSystemTrayIcon();
+    void RemoveSystemTrayIcon();
 
     static SteamProfileInfo FetchActiveSteamProfile();
 
@@ -30,6 +37,7 @@ private:
     void OnPaint(HWND hwnd);
 
     HWND m_hwnd = NULL;
+    NOTIFYICONDATAA m_nid = {};
     SteamProfileInfo m_profile;
     std::string m_statusText = "Waiting for game to launch...";
     std::string m_violationText = "";

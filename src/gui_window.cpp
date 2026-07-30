@@ -43,20 +43,51 @@ SteamProfileInfo AegisXWindow::FetchActiveSteamProfile() {
     return info;
 }
 
+AegisXWindow::~AegisXWindow() {
+    RemoveSystemTrayIcon();
+}
+
+void AegisXWindow::CreateSystemTrayIcon() {
+    memset(&m_nid, 0, sizeof(m_nid));
+    m_nid.cbSize = sizeof(NOTIFYICONDATAA);
+    m_nid.hWnd = m_hwnd;
+    m_nid.uID = 1001;
+    m_nid.uFlags = NIF_ICON | NIF_MESSAGE | NIF_TIP;
+    m_nid.uCallbackMessage = WM_TRAYICON;
+    m_nid.hIcon = (HICON)LoadImageA(GetModuleHandleA(NULL), MAKEINTRESOURCEA(101), IMAGE_ICON, 16, 16, LR_DEFAULTCOLOR);
+    if (!m_nid.hIcon) {
+        m_nid.hIcon = LoadIcon(NULL, IDI_SHIELD);
+    }
+    strcpy_s(m_nid.szTip, sizeof(m_nid.szTip), "Aegis-X Anti-Cheat Guard");
+
+    Shell_NotifyIconA(NIM_ADD, &m_nid);
+}
+
+void AegisXWindow::RemoveSystemTrayIcon() {
+    if (m_nid.hWnd) {
+        Shell_NotifyIconA(NIM_DELETE, &m_nid);
+        m_nid.hWnd = NULL;
+    }
+}
+
 bool AegisXWindow::CreateAegisWindow(HINSTANCE hInstance) {
     g_pWindow = this;
 
-    // Initialize GDI+ for PNG image rendering
     Gdiplus::GdiplusStartupInput gdiplusStartupInput;
     Gdiplus::GdiplusStartup(&g_gdiplusToken, &gdiplusStartupInput, NULL);
 
     m_profile = FetchActiveSteamProfile();
+
+    HICON hAppIcon = (HICON)LoadImageA(hInstance, MAKEINTRESOURCEA(101), IMAGE_ICON, 32, 32, LR_DEFAULTCOLOR);
+    if (!hAppIcon) hAppIcon = LoadIcon(NULL, IDI_SHIELD);
 
     WNDCLASSEXA wc{};
     wc.cbSize = sizeof(WNDCLASSEXA);
     wc.style = CS_HREDRAW | CS_VREDRAW;
     wc.lpfnWndProc = AegisXWindow::WndProc;
     wc.hInstance = hInstance;
+    wc.hIcon = hAppIcon;
+    wc.hIconSm = hAppIcon;
     wc.hCursor = LoadCursor(NULL, IDC_ARROW);
     wc.hbrBackground = (HBRUSH)GetStockObject(BLACK_BRUSH);
     wc.lpszClassName = "AegisX_ClientWindow";
@@ -80,6 +111,9 @@ bool AegisXWindow::CreateAegisWindow(HINSTANCE hInstance) {
     );
 
     if (!m_hwnd) return false;
+
+    // Create System Tray Icon
+    CreateSystemTrayIcon();
 
     // Enable Windows 11 Dark Mode Title Bar
     BOOL useDarkMode = TRUE;
@@ -135,6 +169,42 @@ LRESULT CALLBACK AegisXWindow::WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
 
     case WM_ERASEBKGND:
         return 1;
+
+    case WM_CLOSE:
+        // Do not terminate process when clicking X! Run in System Tray!
+        ShowWindow(hwnd, SW_HIDE);
+        return 0;
+
+    case WM_TRAYICON:
+        if (lParam == WM_LBUTTONDBLCLK || lParam == WM_LBUTTONUP) {
+            ShowWindow(hwnd, SW_SHOW);
+            ShowWindow(hwnd, SW_RESTORE);
+            SetForegroundWindow(hwnd);
+        } else if (lParam == WM_RBUTTONUP) {
+            POINT pt;
+            GetCursorPos(&pt);
+            HMENU hMenu = CreatePopupMenu();
+            InsertMenuA(hMenu, 0, MF_BYPOSITION | MF_STRING, IDM_TRAY_RESTORE, "Open Aegis-X Anti-Cheat");
+            InsertMenuA(hMenu, 1, MF_BYPOSITION | MF_SEPARATOR, 0, NULL);
+            InsertMenuA(hMenu, 2, MF_BYPOSITION | MF_STRING, IDM_TRAY_EXIT, "Exit Anti-Cheat");
+
+            SetForegroundWindow(hwnd);
+            TrackPopupMenu(hMenu, TPM_BOTTOMALIGN | TPM_RIGHTALIGN, pt.x, pt.y, 0, hwnd, NULL);
+            DestroyMenu(hMenu);
+        }
+        return 0;
+
+    case WM_COMMAND:
+        if (LOWORD(wParam) == IDM_TRAY_RESTORE) {
+            ShowWindow(hwnd, SW_SHOW);
+            ShowWindow(hwnd, SW_RESTORE);
+            SetForegroundWindow(hwnd);
+        } else if (LOWORD(wParam) == IDM_TRAY_EXIT) {
+            if (g_pWindow) g_pWindow->RemoveSystemTrayIcon();
+            DestroyWindow(hwnd);
+            PostQuitMessage(0);
+        }
+        return 0;
 
     case WM_DESTROY:
         PostQuitMessage(0);

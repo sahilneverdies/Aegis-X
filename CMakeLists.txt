@@ -36,6 +36,7 @@ add_executable(AegisX_ClientGuard WIN32
     src/watchdog.h
     src/gui_window.cpp
     src/gui_window.h
+    res/resource.rc
 )
 
 target_include_directories(AegisX_ClientGuard PRIVATE
