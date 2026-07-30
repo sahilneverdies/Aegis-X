@@ -45,21 +45,27 @@ bool HookDetector::ScanInlineHooks(HANDLE hProcess, HMODULE hModule, const char*
         return false;
     }
 
-    bool hooked = false;
-    if (codeBytes[0] == 0xE9 || codeBytes[0] == 0xEB) {
-        hooked = true;
-    } else if (codeBytes[0] == 0xFF && codeBytes[1] == 0x25) {
-        hooked = true;
-    } else if (codeBytes[0] == 0x68 && codeBytes[5] == 0xC3) {
-        hooked = true;
+    uintptr_t destinationAddress = 0;
+    if (codeBytes[0] == 0xE9) { // JMP rel32
+        int32_t relOffset = 0;
+        memcpy(&relOffset, &codeBytes[1], sizeof(int32_t));
+        destinationAddress = funcAddr + 5 + relOffset;
+    } else if (codeBytes[0] == 0xFF && codeBytes[1] == 0x25) { // JMP [rip+disp32]
+        int32_t disp = 0;
+        memcpy(&disp, &codeBytes[2], sizeof(int32_t));
+        uintptr_t ptrAddr = funcAddr + 6 + disp;
+        ReadProcessMemory(hProcess, reinterpret_cast<LPCVOID>(ptrAddr), &destinationAddress, sizeof(uintptr_t), NULL);
     }
 
-    if (hooked) {
-        detail.type = ScanResult::InlineHookDetected;
-        detail.address = funcAddr;
-        detail.description = std::string("Inline hook detected on function: ") + functionName;
-        IsAddressInValidModule(hProcess, funcAddr, detail.moduleName);
-        return true;
+    if (destinationAddress != 0) {
+        std::string modName;
+        if (!IsAddressInValidModule(hProcess, destinationAddress, modName) || modName == "UnbackedMemory") {
+            detail.type = ScanResult::InlineHookDetected;
+            detail.address = destinationAddress;
+            detail.description = std::string("Unauthorized inline hook on ") + functionName + " pointing to unbacked memory (0x" + std::to_string(destinationAddress) + ").";
+            detail.moduleName = modName;
+            return true;
+        }
     }
 
     return false;
