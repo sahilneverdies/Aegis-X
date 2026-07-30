@@ -29,6 +29,7 @@ public:
     void UpdateStatus(const std::string& statusText, bool isProtected, bool isViolation = false, const std::string& violationDetail = "");
     void MessageLoop();
     HWND GetHWND() const { return m_hwnd; }
+    const SteamProfileInfo& GetSteamProfile() const { return m_profile; }
 
     void CreateSystemTrayIcon();
     void RemoveSystemTrayIcon();

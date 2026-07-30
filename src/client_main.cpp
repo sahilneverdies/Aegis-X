@@ -44,9 +44,73 @@ DWORD FindCS2ProcessID() {
     return pid;
 }
 
+HWND FindCS2Window(DWORD cs2Pid) {
+    if (cs2Pid == 0) return NULL;
+    HWND hCurr = GetTopWindow(NULL);
+    while (hCurr) {
+        DWORD pid = 0;
+        GetWindowThreadProcessId(hCurr, &pid);
+        if (pid == cs2Pid && IsWindowVisible(hCurr)) {
+            char title[256]{};
+            GetWindowTextA(hCurr, title, sizeof(title));
+            std::string tStr = title;
+            if (tStr.find("Counter-Strike") != std::string::npos || tStr.find("CS2") != std::string::npos || tStr == "SDL_app") {
+                return hCurr;
+            }
+        }
+        hCurr = GetNextWindow(hCurr, GW_HWNDNEXT);
+    }
+    return NULL;
+}
+
+void BroadcastCheatDetectionToCS2(HWND hCS2Wnd, const std::string& playerName, const std::string& reason) {
+    if (!hCS2Wnd || !IsWindow(hCS2Wnd)) return;
+
+    // Bring CS2 window to foreground briefly to receive input
+    SetForegroundWindow(hCS2Wnd);
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+    // Open public chat in CS2 (KeyPress 'Y')
+    PostMessageA(hCS2Wnd, WM_KEYDOWN, 'Y', 0);
+    PostMessageA(hCS2Wnd, WM_KEYUP, 'Y', 0);
+    std::this_thread::sleep_for(std::chrono::milliseconds(150));
+
+    std::string cleanReason = reason;
+    if (cleanReason.length() > 45) {
+        cleanReason = cleanReason.substr(0, 42) + "...";
+    }
+
+    std::string msg = "[AEGIS-X] CHEATER DETECTED: " + playerName + " (" + cleanReason + ")";
+
+    // Send characters to CS2 chat input buffer
+    for (char c : msg) {
+        PostMessageA(hCS2Wnd, WM_CHAR, static_cast<WPARAM>(c), 0);
+    }
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+    // Send Enter key to dispatch chat message to all players on server
+    PostMessageA(hCS2Wnd, WM_KEYDOWN, VK_RETURN, 0);
+    PostMessageA(hCS2Wnd, WM_KEYUP, VK_RETURN, 0);
+
+    // Wait 400ms to allow CS2 network socket thread to flush packet to server
+    std::this_thread::sleep_for(std::chrono::milliseconds(400));
+}
+
 void AbortGameAndNotifyUser(const std::vector<cs2ac::DetectionDetail>& detections) {
     DWORD pid = FindCS2ProcessID();
+    std::string firstDesc = detections.empty() ? "Unauthorized cheat behavior detected." : detections[0].description;
+
     if (pid != 0) {
+        HWND hCS2Wnd = FindCS2Window(pid);
+        std::string pName = g_guiWindow.GetSteamProfile().accountName.empty() ? g_guiWindow.GetSteamProfile().personaName : g_guiWindow.GetSteamProfile().accountName;
+        if (pName.empty()) pName = "sahil12119";
+
+        // Broadcast to CS2 server chat before terminating process
+        if (hCS2Wnd) {
+            BroadcastCheatDetectionToCS2(hCS2Wnd, pName, firstDesc);
+        }
+
         HANDLE hProcess = OpenProcess(PROCESS_TERMINATE, FALSE, pid);
         if (hProcess) {
             TerminateProcess(hProcess, 0xFACE);
@@ -54,7 +118,6 @@ void AbortGameAndNotifyUser(const std::vector<cs2ac::DetectionDetail>& detection
         }
     }
 
-    std::string firstDesc = detections.empty() ? "Unauthorized cheat behavior detected." : detections[0].description;
     g_guiWindow.UpdateStatus("Security Violation  |  cs2.exe terminated", false, true, firstDesc);
     g_guiWindow.TriggerRedLockoutScreen(firstDesc);
 
