@@ -407,9 +407,12 @@ void AegisXWindow::OnPaint(HWND hwnd) {
     } else {
         // --- SKEUOMORPHIC HIGH-TACTILE DASHBOARD ---
         HFONT nameFont = CreateFontA(17, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE, "Segoe UI");
-        HFONT badgeFont = CreateFontA(11, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE, "Segoe UI");
-        HFONT subFont = CreateFontA(12, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE, "Segoe UI");
-        HFONT titleFont = CreateFontA(13, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE, "Segoe UI");
+        HFONT badgeFont = CreateFontA(12, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE, "Segoe UI");
+        HFONT subFont = CreateFontA(13, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE, "Segoe UI");
+        HFONT titleFont = CreateFontA(14, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE, "Segoe UI");
+        HFONT pillFont = CreateFontA(13, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE, "Segoe UI");
+
+        COLORREF matrixGreen = RGB(0, 255, 128); // Vibrant Neon Green
 
         if (m_hasUpdate) {
             // --- DEDICATED SKEUOMORPHIC UPDATE POPUP (MATCHES USER HAND-DRAWN SKETCH) ---
@@ -506,7 +509,7 @@ void AegisXWindow::OnPaint(HWND hwnd) {
 
             // ID64 Subtitle
             SelectObject(memDC, subFont);
-            SetTextColor(memDC, RGB(180, 200, 220));
+            SetTextColor(memDC, RGB(180, 205, 235));
             std::string idStr = "ID: " + std::to_string(m_profile.steamId64);
             RECT idRect{ 82, 60, 232, 76 };
             DrawTextA(memDC, idStr.c_str(), -1, &idRect, DT_LEFT | DT_SINGLELINE);
@@ -530,7 +533,7 @@ void AegisXWindow::OnPaint(HWND hwnd) {
             DrawTextA(memDC, m_isViolation ? "SECURITY ALERT" : "100% ARMORED", -1, &hwTitle, DT_LEFT | DT_SINGLELINE);
 
             SelectObject(memDC, subFont);
-            SetTextColor(memDC, RGB(220, 230, 245));
+            SetTextColor(memDC, RGB(255, 255, 255));
             RECT hwSub{ 68, 128, 220, 146 };
             DrawTextA(memDC, "Hardware Shield Active", -1, &hwSub, DT_LEFT | DT_SINGLELINE);
 
@@ -539,7 +542,7 @@ void AegisXWindow::OnPaint(HWND hwnd) {
             RECT hwSub2{ 68, 148, 220, 168 };
             DrawTextA(memDC, "TPM 2.0 / Secure Boot / IOMMU", -1, &hwSub2, DT_LEFT | DT_SINGLELINE);
 
-            // RIGHT PANEL: Skeuomorphic Tactile Remote Surface (X: 250 to 490) (Matches User Image)
+            // RIGHT PANEL: Skeuomorphic Tactile Remote Surface (X: 250 to 490)
             RECT rightCard{ 250, 10, clientRect.right - 10, 200 };
             DrawSkeuomorphicCard(memDC, rightCard, panelBg, lightBevel, darkShadow);
             DrawSkeuomorphicStitch(memDC, rightCard, RGB(35, 45, 60));
@@ -552,34 +555,46 @@ void AegisXWindow::OnPaint(HWND hwnd) {
             // Debossed Recessed Pill 1
             RECT pill1{ 258, 40, clientRect.right - 20, 68 };
             DrawSkeuomorphicPill(memDC, pill1, recessedBg, darkShadow, lightBevel);
-            SelectObject(memDC, badgeFont);
+            SelectObject(memDC, pillFont);
+            SetTextColor(memDC, RGB(255, 255, 255));
+            RECT p1Lbl{ 266, 40, 420, 68 };
+            DrawTextA(memDC, "[+] KERNEL GUARD:", -1, &p1Lbl, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
             SetTextColor(memDC, matrixGreen);
-            RECT p1Text{ 268, 40, clientRect.right - 20, 68 };
-            DrawTextA(memDC, "[+] KERNEL GUARD: PASS", -1, &p1Text, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
+            RECT p1Val{ 420, 40, clientRect.right - 20, 68 };
+            DrawTextA(memDC, "PASS", -1, &p1Val, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
 
             // Debossed Recessed Pill 2
             RECT pill2{ 258, 74, clientRect.right - 20, 102 };
             DrawSkeuomorphicPill(memDC, pill2, recessedBg, darkShadow, lightBevel);
-            SelectObject(memDC, badgeFont);
+            SelectObject(memDC, pillFont);
+            SetTextColor(memDC, RGB(255, 255, 255));
+            RECT p2Lbl{ 266, 74, 420, 102 };
+            DrawTextA(memDC, "[+] PCIe DMA SHIELD:", -1, &p2Lbl, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
             SetTextColor(memDC, matrixGreen);
-            RECT p2Text{ 268, 74, clientRect.right - 20, 102 };
-            DrawTextA(memDC, "[+] PCIe DMA SHIELD: PASS", -1, &p2Text, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
+            RECT p2Val{ 420, 74, clientRect.right - 20, 102 };
+            DrawTextA(memDC, "PASS", -1, &p2Val, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
 
             // Debossed Recessed Pill 3
             RECT pill3{ 258, 108, clientRect.right - 20, 136 };
             DrawSkeuomorphicPill(memDC, pill3, recessedBg, darkShadow, lightBevel);
-            SelectObject(memDC, badgeFont);
+            SelectObject(memDC, pillFont);
+            SetTextColor(memDC, RGB(255, 255, 255));
+            RECT p3Lbl{ 266, 108, 420, 136 };
+            DrawTextA(memDC, "[+] HYPERVISOR GUARD:", -1, &p3Lbl, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
             SetTextColor(memDC, matrixGreen);
-            RECT p3Text{ 268, 108, clientRect.right - 20, 136 };
-            DrawTextA(memDC, "[+] HYPERVISOR GUARD: PASS", -1, &p3Text, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
+            RECT p3Val{ 420, 108, clientRect.right - 20, 136 };
+            DrawTextA(memDC, "PASS", -1, &p3Val, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
 
             // Debossed Recessed Pill 4
             RECT pill4{ 258, 142, clientRect.right - 20, 170 };
             DrawSkeuomorphicPill(memDC, pill4, recessedBg, darkShadow, lightBevel);
-            SelectObject(memDC, badgeFont);
+            SelectObject(memDC, pillFont);
+            SetTextColor(memDC, RGB(255, 255, 255));
+            RECT p4Lbl{ 266, 142, 420, 170 };
+            DrawTextA(memDC, "[+] ANTI-TAMPER:", -1, &p4Lbl, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
             SetTextColor(memDC, matrixGreen);
-            RECT p4Text{ 268, 142, clientRect.right - 20, 170 };
-            DrawTextA(memDC, "[+] ANTI-TAMPER: PASS", -1, &p4Text, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
+            RECT p4Val{ 420, 142, clientRect.right - 20, 170 };
+            DrawTextA(memDC, "PASS", -1, &p4Val, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
         }
 
         // BOTTOM STATUS BAR (X: 10 to 490, Y: 206 to 246)
@@ -596,15 +611,16 @@ void AegisXWindow::OnPaint(HWND hwnd) {
         Ellipse(memDC, 22, 220, 32, 230);
         DeleteObject(dotBr);
 
-        SetTextColor(memDC, RGB(241, 245, 249));
+        SetTextColor(memDC, RGB(255, 255, 255));
         std::string bottomMsg = "Status: " + m_statusText;
-        RECT bottomRect{ 38, 218, clientRect.right - 18, 238 };
+        RECT bottomRect{ 38, 217, clientRect.right - 18, 238 };
         DrawTextA(memDC, bottomMsg.c_str(), -1, &bottomRect, DT_LEFT | DT_SINGLELINE);
 
         DeleteObject(nameFont);
         DeleteObject(badgeFont);
         DeleteObject(subFont);
         DeleteObject(titleFont);
+        DeleteObject(pillFont);
     }
 
     // Copy to screen DC
