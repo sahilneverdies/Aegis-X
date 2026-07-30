@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="docs/vacguard-banner.png" width="760" alt="Aegis-X Protection Suite Banner">
+# <img src="docs/vacguard-banner.png" width="760" alt="Aegis-X Protection Suite Banner">
 
 ### Aegis-X — Next-generation Pure Client-Side Anti-Cheat Suite for Counter-Strike 2 by Sahil.
 
