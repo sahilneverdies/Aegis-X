@@ -81,113 +81,146 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     aegisx::AntiTamper::EnableSelfProtection();
     cs2ac::AntiDebug::HideCurrentThread();
 
-    // 1. Check for active debuggers & hardware breakpoints
-    if (cs2ac::AntiDebug::IsDebuggerPresentCheck() || cs2ac::AntiDebug::CheckHardwareBreakpoints()) {
-        std::vector<cs2ac::DetectionDetail> debugDetections = {
-            { cs2ac::ScanResult::DebuggerDetected, "Active debugger or hardware breakpoint detected on system.", 0, "Debugger" }
-        };
-        AbortGameAndNotifyUser(debugDetections);
-        return 1;
-    }
-
-    // 2. Scan PCIe bus for hardware DMA cards (CaptainDMA, EnigmaDMA, Screamer, FPGA boards)
-    cs2ac::DMAShield dmaShield;
-    std::vector<cs2ac::DMADeviceMatch> dmaMatches;
-    if (dmaShield.ScanPCIeDMADevices(dmaMatches)) {
-        std::vector<cs2ac::DetectionDetail> detections;
-        for (const auto& dma : dmaMatches) {
-            detections.push_back({ cs2ac::ScanResult::BlacklistedModuleLoaded, dma.description, 0, dma.hardwareID });
-        }
-        AbortGameAndNotifyUser(detections);
-        return 1;
-    }
-
-    // 3. Check for Type-1 / Type-2 Hypervisors & VM-Exit timing latency
-    cs2ac::HypervisorDetector hypervisorDetector;
-    std::string hvVendor;
-    if (hypervisorDetector.CheckHypervisorCPUID(hvVendor)) {
-        std::vector<cs2ac::DetectionDetail> detections = {
-            { cs2ac::ScanResult::DebuggerDetected, "Hypervisor / Virtual Machine cheat detected (Vendor: " + hvVendor + ").", 0, "Hypervisor" }
-        };
-        AbortGameAndNotifyUser(detections);
-        return 1;
-    }
-
-    // 4. Scan kernel drivers for blacklisted BYOVD exploit drivers
-    cs2ac::KernelGuard kernelGuard;
-    std::vector<cs2ac::VulnerableDriverMatch> driverDetections;
-    if (kernelGuard.ScanBYOVDDrivers(driverDetections)) {
-        std::vector<cs2ac::DetectionDetail> detections;
-        for (const auto& drv : driverDetections) {
-            detections.push_back({ cs2ac::ScanResult::BlacklistedModuleLoaded, drv.description, 0, drv.driverName });
-        }
-        AbortGameAndNotifyUser(detections);
-        return 1;
-    }
-
-    // 5. Continuous Auto-Start Daemon Loop (Detects CS2 startup or launches via Steam)
-    DWORD cs2Pid = 0;
-    while (cs2Pid == 0) {
-        cs2Pid = FindCS2ProcessID();
-        if (cs2Pid != 0) break;
-        std::this_thread::sleep_for(std::chrono::milliseconds(200));
-    }
-
-    HANDLE hCS2 = OpenProcess(PROCESS_VM_READ | PROCESS_VM_WRITE | PROCESS_QUERY_INFORMATION | PROCESS_TERMINATE, FALSE, cs2Pid);
-    if (!hCS2) {
-        MessageBoxA(NULL, "Aegis-X requires Administrator privileges to protect process memory.", "Aegis-X Anti-Cheat", MB_OK | MB_ICONERROR);
-        return 1;
-    }
-
-    // Apply process handle mitigations & start watchdog heartbeat monitor
-    kernelGuard.EnforceHandleRestrictions(hCS2);
-    aegisx::Watchdog watchdog;
-    watchdog.StartWatchdog(cs2Pid);
-
-    cs2ac::HookDetector detector;
-    cs2ac::ExternalDetector extDetector;
-    cs2ac::ClientFogOfWar clientFOW;
-    cs2ac::MemoryGuard memoryGuard;
-
-    DWORD exitCode = 0;
-    while (GetExitCodeProcess(hCS2, &exitCode) && exitCode == STILL_ACTIVE) {
-        std::vector<cs2ac::DetectionDetail> detections;
-
-        // 1. Scan internal hooks, VMT hijacking, & RWX unbacked memory
-        if (detector.RunFullScan(hCS2, detections)) {
-            watchdog.StopWatchdog();
-            CloseHandle(hCS2);
-            AbortGameAndNotifyUser(detections);
-            return 0xFACE;
+    // Outer continuous daemon loop - Aegis-X stays running 24/7 in the background
+    while (true) {
+        // 1. Check for active debuggers & hardware breakpoints
+        if (cs2ac::AntiDebug::IsDebuggerPresentCheck() || cs2ac::AntiDebug::CheckHardwareBreakpoints()) {
+            std::vector<cs2ac::DetectionDetail> debugDetections = {
+                { cs2ac::ScanResult::DebuggerDetected, "Active debugger or hardware breakpoint detected on system.", 0, "Debugger" }
+            };
+            AbortGameAndNotifyUser(debugDetections);
+            std::this_thread::sleep_for(std::chrono::seconds(2));
+            continue;
         }
 
-        // 2. Verify code section CRC32 integrity against byte patching
-        std::string tamperedModule;
-        if (!memoryGuard.VerifyCodeIntegrity(hCS2, tamperedModule)) {
-            watchdog.StopWatchdog();
-            CloseHandle(hCS2);
-            detections.push_back({ cs2ac::ScanResult::InlineHookDetected, "Memory code patching detected in module: " + tamperedModule, 0, tamperedModule });
-            AbortGameAndNotifyUser(detections);
-            return 0xFACE;
-        }
-
-        // 3. Scan external transparent overlays placed over CS2
-        std::vector<cs2ac::ExternalDetection> extDetections;
-        if (extDetector.ScanExternalOverlays(cs2Pid, extDetections)) {
-            watchdog.StopWatchdog();
-            CloseHandle(hCS2);
-            std::vector<cs2ac::DetectionDetail> convertedDetections;
-            for (const auto& ext : extDetections) {
-                convertedDetections.push_back({ cs2ac::ScanResult::BlacklistedModuleLoaded, ext.description, reinterpret_cast<uintptr_t>(ext.windowHandle), "ExternalOverlay" });
+        // 2. Scan PCIe bus for hardware DMA cards (CaptainDMA, EnigmaDMA, Screamer, FPGA boards)
+        cs2ac::DMAShield dmaShield;
+        std::vector<cs2ac::DMADeviceMatch> dmaMatches;
+        if (dmaShield.ScanPCIeDMADevices(dmaMatches)) {
+            std::vector<cs2ac::DetectionDetail> detections;
+            for (const auto& dma : dmaMatches) {
+                detections.push_back({ cs2ac::ScanResult::BlacklistedModuleLoaded, dma.description, 0, dma.hardwareID });
             }
-            AbortGameAndNotifyUser(convertedDetections);
-            return 0xFACE;
+            AbortGameAndNotifyUser(detections);
+            std::this_thread::sleep_for(std::chrono::seconds(2));
+            continue;
         }
 
+        // 3. Check for Type-1 / Type-2 Hypervisors & VM-Exit timing latency
+        cs2ac::HypervisorDetector hypervisorDetector;
+        std::string hvVendor;
+        if (hypervisorDetector.CheckHypervisorCPUID(hvVendor)) {
+            std::vector<cs2ac::DetectionDetail> detections = {
+                { cs2ac::ScanResult::DebuggerDetected, "Hypervisor / Virtual Machine cheat detected (Vendor: " + hvVendor + ").", 0, "Hypervisor" }
+            };
+            AbortGameAndNotifyUser(detections);
+            std::this_thread::sleep_for(std::chrono::seconds(2));
+            continue;
+        }
+
+        // 4. Scan kernel drivers for blacklisted BYOVD exploit drivers
+        cs2ac::KernelGuard kernelGuard;
+        std::vector<cs2ac::VulnerableDriverMatch> driverDetections;
+        if (kernelGuard.ScanBYOVDDrivers(driverDetections)) {
+            std::vector<cs2ac::DetectionDetail> detections;
+            for (const auto& drv : driverDetections) {
+                detections.push_back({ cs2ac::ScanResult::BlacklistedModuleLoaded, drv.description, 0, drv.driverName });
+            }
+            AbortGameAndNotifyUser(detections);
+            std::this_thread::sleep_for(std::chrono::seconds(2));
+            continue;
+        }
+
+        // 5. Continuous Auto-Start Daemon Loop (Polls for CS2 launch in background)
+        DWORD cs2Pid = 0;
+        while (cs2Pid == 0) {
+            cs2Pid = FindCS2ProcessID();
+            if (cs2Pid != 0) break;
+            std::this_thread::sleep_for(std::chrono::milliseconds(200));
+        }
+
+        HANDLE hCS2 = OpenProcess(PROCESS_VM_READ | PROCESS_VM_WRITE | PROCESS_QUERY_INFORMATION | PROCESS_TERMINATE, FALSE, cs2Pid);
+        if (!hCS2) {
+            std::this_thread::sleep_for(std::chrono::seconds(1));
+            continue;
+        }
+
+        // Apply process handle mitigations & start watchdog heartbeat monitor
+        kernelGuard.EnforceHandleRestrictions(hCS2);
+        aegisx::Watchdog watchdog;
+        watchdog.StartWatchdog(cs2Pid);
+
+        cs2ac::HookDetector detector;
+        cs2ac::ExternalDetector extDetector;
+        cs2ac::ClientFogOfWar clientFOW;
+        cs2ac::MemoryGuard memoryGuard;
+        cs2ac::AICVDetector cvDetector;
+
+        DWORD exitCode = 0;
+        bool cheatDetected = false;
+
+        while (GetExitCodeProcess(hCS2, &exitCode) && exitCode == STILL_ACTIVE) {
+            std::vector<cs2ac::DetectionDetail> detections;
+
+            // Scan internal hooks, VMT hijacking, & RWX unbacked memory
+            if (detector.RunFullScan(hCS2, detections)) {
+                cheatDetected = true;
+                watchdog.StopWatchdog();
+                CloseHandle(hCS2);
+                AbortGameAndNotifyUser(detections);
+                break;
+            }
+
+            // Verify code section integrity against byte patching
+            std::string tamperedModule;
+            if (!memoryGuard.VerifyCodeIntegrity(hCS2, tamperedModule)) {
+                cheatDetected = true;
+                watchdog.StopWatchdog();
+                CloseHandle(hCS2);
+                detections.push_back({ cs2ac::ScanResult::InlineHookDetected, "Memory code patching detected in module: " + tamperedModule, 0, tamperedModule });
+                AbortGameAndNotifyUser(detections);
+                break;
+            }
+
+            // Scan external transparent overlays placed over CS2
+            std::vector<cs2ac::ExternalDetection> extDetections;
+            if (extDetector.ScanExternalOverlays(cs2Pid, extDetections)) {
+                cheatDetected = true;
+                watchdog.StopWatchdog();
+                CloseHandle(hCS2);
+                std::vector<cs2ac::DetectionDetail> convertedDetections;
+                for (const auto& ext : extDetections) {
+                    convertedDetections.push_back({ cs2ac::ScanResult::BlacklistedModuleLoaded, ext.description, reinterpret_cast<uintptr_t>(ext.windowHandle), "ExternalOverlay" });
+                }
+                AbortGameAndNotifyUser(convertedDetections);
+                break;
+            }
+
+            // Scan DXGI Desktop Duplication API hooks for AI vision aimbots
+            std::string cvDesc;
+            if (cvDetector.ScanDXGIDesktopDuplication(cs2Pid, cvDesc)) {
+                cheatDetected = true;
+                watchdog.StopWatchdog();
+                CloseHandle(hCS2);
+                detections.push_back({ cs2ac::ScanResult::BlacklistedModuleLoaded, cvDesc, 0, "AICVDetector" });
+                AbortGameAndNotifyUser(detections);
+                break;
+            }
+
+            // Update client Fog-Of-War culling
+            (void)clientFOW;
+
+            std::this_thread::sleep_for(std::chrono::milliseconds(50));
+        }
+
+        if (!cheatDetected) {
+            watchdog.StopWatchdog();
+            CloseHandle(hCS2);
+        }
+
+        // Brief sleep before resetting daemon loop for next CS2 launch
         std::this_thread::sleep_for(std::chrono::seconds(1));
     }
 
-    watchdog.StopWatchdog();
-    CloseHandle(hCS2);
     return 0;
 }
