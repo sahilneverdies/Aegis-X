@@ -77,6 +77,8 @@ bool AegisXWindow::CreateAegisWindow(HINSTANCE hInstance) {
     Gdiplus::GdiplusStartup(&g_gdiplusToken, &gdiplusStartupInput, NULL);
 
     m_profile = FetchActiveSteamProfile();
+    m_updateInfo = AutoUpdater::CheckForRemoteUpdate();
+    m_hasUpdate = m_updateInfo.updateAvailable;
 
     HICON hAppIcon = (HICON)LoadImageA(hInstance, MAKEINTRESOURCEA(101), IMAGE_ICON, 32, 32, LR_DEFAULTCOLOR);
     if (!hAppIcon) hAppIcon = LoadIcon(NULL, IDI_SHIELD);
