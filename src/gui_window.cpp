@@ -63,6 +63,9 @@ bool AegisXWindow::CreateAegisWindow(HINSTANCE hInstance) {
     BOOL useDarkMode = TRUE;
     DwmSetWindowAttribute(m_hwnd, 20 /* DWMWA_USE_IMMERSIVE_DARK_MODE */, &useDarkMode, sizeof(useDarkMode));
 
+    // 30ms animation timer
+    SetTimer(m_hwnd, 1, 30, NULL);
+
     ShowWindow(m_hwnd, SW_SHOW);
     UpdateWindow(m_hwnd);
 
@@ -76,12 +79,32 @@ void AegisXWindow::UpdateStatus(const std::string& statusText, bool isProtected,
     m_violationText = violationDetail;
 
     if (m_hwnd) {
-        InvalidateRect(m_hwnd, NULL, TRUE);
+        InvalidateRect(m_hwnd, NULL, FALSE);
     }
 }
 
 LRESULT CALLBACK AegisXWindow::WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
     switch (msg) {
+    case WM_TIMER:
+        if (g_pWindow && g_pWindow->m_isLoading) {
+            g_pWindow->m_spinnerFrame++;
+            g_pWindow->m_loadingProgress += 2;
+
+            if (g_pWindow->m_loadingProgress < 30) {
+                g_pWindow->m_loadingText = "Starting service...";
+            } else if (g_pWindow->m_loadingProgress < 70) {
+                g_pWindow->m_loadingText = "Verifying Kernel Security & Driver Shield...";
+            } else if (g_pWindow->m_loadingProgress < 100) {
+                g_pWindow->m_loadingText = "Authenticating Steam Profile...";
+            } else {
+                g_pWindow->m_isLoading = false;
+                KillTimer(hwnd, 1);
+            }
+
+            InvalidateRect(hwnd, NULL, FALSE);
+        }
+        return 0;
+
     case WM_PAINT:
         if (g_pWindow) {
             g_pWindow->OnPaint(hwnd);
@@ -117,87 +140,151 @@ void AegisXWindow::OnPaint(HWND hwnd) {
     FillRect(memDC, &clientRect, bgBrush);
     DeleteObject(bgBrush);
 
-    // Title Font & Body Font
-    HFONT nameFont = CreateFontA(24, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE, "Segoe UI");
-    HFONT subFont = CreateFontA(14, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE, "Segoe UI");
-    HFONT cardTitleFont = CreateFontA(16, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE, "Segoe UI");
-
     SetBkMode(memDC, TRANSPARENT);
 
-    // 1. Render Steam Profile Card (#1F242D)
-    RECT profileCard{ 20, 20, 484, 110 };
-    HBRUSH cardBrush = CreateSolidBrush(RGB(31, 36, 45));
-    FillRect(memDC, &profileCard, cardBrush);
-    DeleteObject(cardBrush);
+    if (m_isLoading) {
+        // --- RENDER FACEIT-STYLE STARTING SERVICE ANIMATION ---
+        HFONT logoFont = CreateFontA(36, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE, "Segoe UI");
+        HFONT titleFont = CreateFontA(20, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE, "Segoe UI");
+        HFONT subFont = CreateFontA(14, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE, "Segoe UI");
 
-    // Avatar Box (#2A303C)
-    RECT avatarRect{ 35, 32, 95, 92 };
-    HBRUSH avatarBrush = CreateSolidBrush(RGB(42, 48, 60));
-    FillRect(memDC, &avatarRect, avatarBrush);
-    DeleteObject(avatarBrush);
+        // Shield Logo
+        SelectObject(memDC, logoFont);
+        SetTextColor(memDC, RGB(255, 107, 0)); // FACEIT Orange #FF6B00
+        RECT logoRect{ 0, 70, clientRect.right, 120 };
+        DrawTextA(memDC, "🛡️", -1, &logoRect, DT_CENTER | DT_SINGLELINE);
 
-    // Shield Logo inside Avatar Box
-    SelectObject(memDC, nameFont);
-    SetTextColor(memDC, RGB(0, 230, 118)); // Neon Green
-    RECT logoTextRect{ 35, 45, 95, 80 };
-    DrawTextA(memDC, "🛡️", -1, &logoTextRect, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+        // Loading Text ("Starting service...")
+        SelectObject(memDC, titleFont);
+        SetTextColor(memDC, RGB(255, 255, 255));
+        RECT titleRect{ 0, 130, clientRect.right, 160 };
+        DrawTextA(memDC, m_loadingText.c_str(), -1, &titleRect, DT_CENTER | DT_SINGLELINE);
 
-    // Steam Persona Name
-    SelectObject(memDC, nameFont);
-    SetTextColor(memDC, RGB(255, 255, 255));
-    RECT nameTextRect{ 115, 33, 460, 60 };
-    DrawTextA(memDC, m_profile.personaName.c_str(), -1, &nameTextRect, DT_LEFT | DT_SINGLELINE);
+        // Subtitle Text
+        SelectObject(memDC, subFont);
+        SetTextColor(memDC, RGB(160, 174, 192));
+        RECT subRect{ 0, 165, clientRect.right, 190 };
+        DrawTextA(memDC, "Aegis-X Protection Suite (by Sahil)", -1, &subRect, DT_CENTER | DT_SINGLELINE);
 
-    // Steam ID / Status Subtitle
-    SelectObject(memDC, subFont);
-    SetTextColor(memDC, RGB(160, 174, 192));
-    std::string subText = "Steam Account Verified  •  ID64: " + std::to_string(m_profile.steamId64);
-    RECT subTextRect{ 115, 63, 460, 85 };
-    DrawTextA(memDC, subText.c_str(), -1, &subTextRect, DT_LEFT | DT_SINGLELINE);
+        // Progress Bar Outer Track (#1F242D)
+        RECT barOuter{ 110, 210, 394, 216 };
+        HBRUSH trackBrush = CreateSolidBrush(RGB(31, 36, 45));
+        FillRect(memDC, &barOuter, trackBrush);
+        DeleteObject(trackBrush);
 
-    // 2. Render Security Status Banner (#1A2B22 for valid, #3B1B1B for violation)
-    RECT bannerCard{ 20, 125, 484, 250 };
-    COLORREF bannerBg = m_isViolation ? RGB(59, 27, 27) : RGB(26, 43, 34);
-    COLORREF bannerBorder = m_isViolation ? RGB(255, 61, 0) : RGB(0, 230, 118);
-    HBRUSH bannerBrush = CreateSolidBrush(bannerBg);
-    FillRect(memDC, &bannerCard, bannerBrush);
-    DeleteObject(bannerBrush);
+        // Progress Bar Inner Fill (#FF6B00 Orange)
+        int fillWidth = (284 * m_loadingProgress) / 100;
+        if (fillWidth > 0) {
+            RECT barInner{ 110, 210, 110 + fillWidth, 216 };
+            HBRUSH fillBrush = CreateSolidBrush(RGB(255, 107, 0));
+            FillRect(memDC, &barInner, fillBrush);
+            DeleteObject(fillBrush);
+        }
 
-    // Banner Title
-    SelectObject(memDC, cardTitleFont);
-    SetTextColor(memDC, bannerBorder);
-    std::string bannerTitle = m_isViolation ? "❌ Security Violation Detected" : "✔ TPM, Secure Boot & IOMMU Protection Active";
-    RECT bannerTitleRect{ 35, 140, 470, 165 };
-    DrawTextA(memDC, bannerTitle.c_str(), -1, &bannerTitleRect, DT_LEFT | DT_SINGLELINE);
+        // Animated Dots Spinner (5 pulsing dots)
+        int centerX = clientRect.right / 2;
+        int dotsY = 240;
+        int dotSpacing = 14;
+        int startX = centerX - (2 * dotSpacing);
 
-    // Banner Body Text
-    SelectObject(memDC, subFont);
-    SetTextColor(memDC, RGB(226, 232, 240));
-    std::string bannerBody = m_isViolation ?
-        (m_violationText.empty() ? "Unauthorized cheat behavior detected. CS2 process terminated." : m_violationText) :
-        "Aegis-X Real-Time Driver Shield, Anti-Tamper & Kernel Watchdog are fully operational.";
-    RECT bannerBodyRect{ 35, 172, 470, 235 };
-    DrawTextA(memDC, bannerBody.c_str(), -1, &bannerBodyRect, DT_LEFT | DT_WORDBREAK);
+        for (int i = 0; i < 5; i++) {
+            int dotX = startX + (i * dotSpacing);
+            int pulse = (m_spinnerFrame + (i * 3)) % 15;
+            int radius = (pulse < 8) ? (3 + pulse / 2) : (7 - pulse / 2);
 
-    // 3. Render Bottom Status Bar
-    SelectObject(memDC, subFont);
-    COLORREF statusDotColor = m_isViolation ? RGB(255, 61, 0) : (m_isProtected ? RGB(0, 230, 118) : RGB(255, 193, 7));
-    SetTextColor(memDC, statusDotColor);
-    RECT statusDotRect{ 20, 275, 40, 300 };
-    DrawTextA(memDC, "🟢", -1, &statusDotRect, DT_LEFT | DT_SINGLELINE);
+            COLORREF dotColor = (pulse < 8) ? RGB(255, 107, 0) : RGB(255, 160, 80);
+            HBRUSH dotBrush = CreateSolidBrush(dotColor);
+            HPEN nullPen = (HPEN)GetStockObject(NULL_PEN);
+            SelectObject(memDC, dotBrush);
+            SelectObject(memDC, nullPen);
+            Ellipse(memDC, dotX - radius, dotsY - radius, dotX + radius, dotsY + radius);
+            DeleteObject(dotBrush);
+        }
 
-    SetTextColor(memDC, RGB(203, 213, 225));
-    std::string bottomText = "Status: " + m_statusText;
-    RECT statusTextRect{ 42, 275, 484, 300 };
-    DrawTextA(memDC, bottomText.c_str(), -1, &statusTextRect, DT_LEFT | DT_SINGLELINE);
+        DeleteObject(logoFont);
+        DeleteObject(titleFont);
+        DeleteObject(subFont);
+    } else {
+        // --- RENDER MAIN DASHBOARD UI ---
+        HFONT nameFont = CreateFontA(24, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE, "Segoe UI");
+        HFONT subFont = CreateFontA(14, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE, "Segoe UI");
+        HFONT cardTitleFont = CreateFontA(16, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE, "Segoe UI");
+
+        // 1. Render Steam Profile Card (#1F242D)
+        RECT profileCard{ 20, 20, 484, 110 };
+        HBRUSH cardBrush = CreateSolidBrush(RGB(31, 36, 45));
+        FillRect(memDC, &profileCard, cardBrush);
+        DeleteObject(cardBrush);
+
+        // Avatar Box (#2A303C)
+        RECT avatarRect{ 35, 32, 95, 92 };
+        HBRUSH avatarBrush = CreateSolidBrush(RGB(42, 48, 60));
+        FillRect(memDC, &avatarRect, avatarBrush);
+        DeleteObject(avatarBrush);
+
+        // Shield Logo inside Avatar Box
+        SelectObject(memDC, nameFont);
+        SetTextColor(memDC, RGB(0, 230, 118)); // Neon Green
+        RECT logoTextRect{ 35, 45, 95, 80 };
+        DrawTextA(memDC, "🛡️", -1, &logoTextRect, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+
+        // Steam Persona Name
+        SelectObject(memDC, nameFont);
+        SetTextColor(memDC, RGB(255, 255, 255));
+        RECT nameTextRect{ 115, 33, 460, 60 };
+        DrawTextA(memDC, m_profile.personaName.c_str(), -1, &nameTextRect, DT_LEFT | DT_SINGLELINE);
+
+        // Steam ID / Status Subtitle
+        SelectObject(memDC, subFont);
+        SetTextColor(memDC, RGB(160, 174, 192));
+        std::string subText = "Steam Account Verified  •  ID64: " + std::to_string(m_profile.steamId64);
+        RECT subTextRect{ 115, 63, 460, 85 };
+        DrawTextA(memDC, subText.c_str(), -1, &subTextRect, DT_LEFT | DT_SINGLELINE);
+
+        // 2. Render Security Status Banner (#1A2B22 for valid, #3B1B1B for violation)
+        RECT bannerCard{ 20, 125, 484, 250 };
+        COLORREF bannerBg = m_isViolation ? RGB(59, 27, 27) : RGB(26, 43, 34);
+        COLORREF bannerBorder = m_isViolation ? RGB(255, 61, 0) : RGB(0, 230, 118);
+        HBRUSH bannerBrush = CreateSolidBrush(bannerBg);
+        FillRect(memDC, &bannerCard, bannerBrush);
+        DeleteObject(bannerBrush);
+
+        // Banner Title
+        SelectObject(memDC, cardTitleFont);
+        SetTextColor(memDC, bannerBorder);
+        std::string bannerTitle = m_isViolation ? "❌ Security Violation Detected" : "✔ TPM, Secure Boot & IOMMU Protection Active";
+        RECT bannerTitleRect{ 35, 140, 470, 165 };
+        DrawTextA(memDC, bannerTitle.c_str(), -1, &bannerTitleRect, DT_LEFT | DT_SINGLELINE);
+
+        // Banner Body Text
+        SelectObject(memDC, subFont);
+        SetTextColor(memDC, RGB(226, 232, 240));
+        std::string bannerBody = m_isViolation ?
+            (m_violationText.empty() ? "Unauthorized cheat behavior detected. CS2 process terminated." : m_violationText) :
+            "Aegis-X Real-Time Driver Shield, Anti-Tamper & Kernel Watchdog are fully operational.";
+        RECT bannerBodyRect{ 35, 172, 470, 235 };
+        DrawTextA(memDC, bannerBody.c_str(), -1, &bannerBodyRect, DT_LEFT | DT_WORDBREAK);
+
+        // 3. Render Bottom Status Bar
+        SelectObject(memDC, subFont);
+        COLORREF statusDotColor = m_isViolation ? RGB(255, 61, 0) : (m_isProtected ? RGB(0, 230, 118) : RGB(255, 193, 7));
+        SetTextColor(memDC, statusDotColor);
+        RECT statusDotRect{ 20, 275, 40, 300 };
+        DrawTextA(memDC, "🟢", -1, &statusDotRect, DT_LEFT | DT_SINGLELINE);
+
+        SetTextColor(memDC, RGB(203, 213, 225));
+        std::string bottomText = "Status: " + m_statusText;
+        RECT statusTextRect{ 42, 275, 484, 300 };
+        DrawTextA(memDC, bottomText.c_str(), -1, &statusTextRect, DT_LEFT | DT_SINGLELINE);
+
+        DeleteObject(nameFont);
+        DeleteObject(subFont);
+        DeleteObject(cardTitleFont);
+    }
 
     // Copy to screen DC
     BitBlt(hdc, 0, 0, clientRect.right, clientRect.bottom, memDC, 0, 0, SRCCOPY);
 
-    // Clean up fonts & DC
-    DeleteObject(nameFont);
-    DeleteObject(subFont);
-    DeleteObject(cardTitleFont);
     SelectObject(memDC, oldBM);
     DeleteObject(memBM);
     DeleteDC(memDC);

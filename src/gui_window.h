@@ -32,8 +32,12 @@ private:
     SteamProfileInfo m_profile;
     std::string m_statusText = "Waiting for game to launch...";
     std::string m_violationText = "";
+    std::string m_loadingText = "Starting service...";
     bool m_isProtected = false;
     bool m_isViolation = false;
+    bool m_isLoading = true;
+    int m_loadingProgress = 0;
+    int m_spinnerFrame = 0;
 };
 
 } // namespace aegisx
