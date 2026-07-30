@@ -294,7 +294,7 @@ void AegisXWindow::OnPaint(HWND hwnd) {
         FillRect(memDC, &col1, col1Brush);
         DeleteObject(col1Brush);
 
-        // Player Avatar (Circular 50x50 at X:61, Y:22)
+        // Player Avatar (Square 50x50 at X:61, Y:22)
         RECT avatarRect{ 61, 22, 111, 72 };
         bool avatarDrawn = false;
         if (!m_profile.avatarPath.empty()) {
@@ -319,13 +319,13 @@ void AegisXWindow::OnPaint(HWND hwnd) {
             DrawTextA(memDC, initialStr.c_str(), -1, &avatarRect, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
         }
 
-        // Cyan Ring around Avatar
-        HPEN ringPen = CreatePen(PS_SOLID, 2, cyanGlow);
+        // Cyan Square Border around Avatar
+        HPEN cyanPen = CreatePen(PS_SOLID, 1, cyanGlow);
         HBRUSH nullBrush = (HBRUSH)GetStockObject(NULL_BRUSH);
-        SelectObject(memDC, ringPen);
+        SelectObject(memDC, cyanPen);
         SelectObject(memDC, nullBrush);
-        Ellipse(memDC, 59, 20, 113, 74);
-        DeleteObject(ringPen);
+        Rectangle(memDC, 60, 21, 112, 73);
+        DeleteObject(cyanPen);
 
         // Player Name
         SelectObject(memDC, nameFont);
@@ -391,16 +391,16 @@ void AegisXWindow::OnPaint(HWND hwnd) {
         SelectObject(memDC, subFont);
         SetTextColor(memDC, matrixGreen);
         RECT m1{ 330, 48, clientRect.right - 18, 68 };
-        DrawTextA(memDC, "● KERNEL GUARD: PASS", -1, &m1, DT_LEFT | DT_SINGLELINE);
+        DrawTextA(memDC, "[+] KERNEL GUARD: PASS", -1, &m1, DT_LEFT | DT_SINGLELINE);
 
         RECT m2{ 330, 72, clientRect.right - 18, 92 };
-        DrawTextA(memDC, "● PCIe DMA SHIELD: PASS", -1, &m2, DT_LEFT | DT_SINGLELINE);
+        DrawTextA(memDC, "[+] PCIe DMA SHIELD: PASS", -1, &m2, DT_LEFT | DT_SINGLELINE);
 
         RECT m3{ 330, 96, clientRect.right - 18, 116 };
-        DrawTextA(memDC, "● HYPERVISOR GUARD: PASS", -1, &m3, DT_LEFT | DT_SINGLELINE);
+        DrawTextA(memDC, "[+] HYPERVISOR GUARD: PASS", -1, &m3, DT_LEFT | DT_SINGLELINE);
 
         RECT m4{ 330, 120, clientRect.right - 18, 140 };
-        DrawTextA(memDC, "● ANTI-TAMPER: ACTIVE", -1, &m4, DT_LEFT | DT_SINGLELINE);
+        DrawTextA(memDC, "[+] ANTI-TAMPER: ACTIVE", -1, &m4, DT_LEFT | DT_SINGLELINE);
 
         // BOTTOM BAR (X: 12 to clientRect.right - 12, Y: 175)
         SelectObject(memDC, titleFont);
