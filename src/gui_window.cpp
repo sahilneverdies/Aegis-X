@@ -148,26 +148,26 @@ void AegisXWindow::OnPaint(HWND hwnd) {
         HFONT titleFont = CreateFontA(20, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE, "Segoe UI");
         HFONT subFont = CreateFontA(14, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE, "Segoe UI");
 
-        // Shield Logo
+        // Shield Logo Text
         SelectObject(memDC, logoFont);
         SetTextColor(memDC, RGB(255, 107, 0)); // FACEIT Orange #FF6B00
-        RECT logoRect{ 0, 70, clientRect.right, 120 };
-        DrawTextA(memDC, "🛡️", -1, &logoRect, DT_CENTER | DT_SINGLELINE);
+        RECT logoRect{ 0, 65, clientRect.right, 115 };
+        DrawTextA(memDC, "[ AEGIS-X ]", -1, &logoRect, DT_CENTER | DT_SINGLELINE);
 
         // Loading Text ("Starting service...")
         SelectObject(memDC, titleFont);
         SetTextColor(memDC, RGB(255, 255, 255));
-        RECT titleRect{ 0, 130, clientRect.right, 160 };
+        RECT titleRect{ 0, 125, clientRect.right, 155 };
         DrawTextA(memDC, m_loadingText.c_str(), -1, &titleRect, DT_CENTER | DT_SINGLELINE);
 
         // Subtitle Text
         SelectObject(memDC, subFont);
         SetTextColor(memDC, RGB(160, 174, 192));
-        RECT subRect{ 0, 165, clientRect.right, 190 };
+        RECT subRect{ 0, 160, clientRect.right, 185 };
         DrawTextA(memDC, "Aegis-X Protection Suite (by Sahil)", -1, &subRect, DT_CENTER | DT_SINGLELINE);
 
         // Progress Bar Outer Track (#1F242D)
-        RECT barOuter{ 110, 210, 394, 216 };
+        RECT barOuter{ 110, 205, 394, 211 };
         HBRUSH trackBrush = CreateSolidBrush(RGB(31, 36, 45));
         FillRect(memDC, &barOuter, trackBrush);
         DeleteObject(trackBrush);
@@ -175,7 +175,7 @@ void AegisXWindow::OnPaint(HWND hwnd) {
         // Progress Bar Inner Fill (#FF6B00 Orange)
         int fillWidth = (284 * m_loadingProgress) / 100;
         if (fillWidth > 0) {
-            RECT barInner{ 110, 210, 110 + fillWidth, 216 };
+            RECT barInner{ 110, 205, 110 + fillWidth, 211 };
             HBRUSH fillBrush = CreateSolidBrush(RGB(255, 107, 0));
             FillRect(memDC, &barInner, fillBrush);
             DeleteObject(fillBrush);
@@ -183,7 +183,7 @@ void AegisXWindow::OnPaint(HWND hwnd) {
 
         // Animated Dots Spinner (5 pulsing dots)
         int centerX = clientRect.right / 2;
-        int dotsY = 240;
+        int dotsY = 235;
         int dotSpacing = 14;
         int startX = centerX - (2 * dotSpacing);
 
@@ -207,6 +207,7 @@ void AegisXWindow::OnPaint(HWND hwnd) {
     } else {
         // --- RENDER MAIN DASHBOARD UI ---
         HFONT nameFont = CreateFontA(24, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE, "Segoe UI");
+        HFONT avatarFont = CreateFontA(28, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE, "Segoe UI");
         HFONT subFont = CreateFontA(14, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE, "Segoe UI");
         HFONT cardTitleFont = CreateFontA(16, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE, "Segoe UI");
 
@@ -222,11 +223,11 @@ void AegisXWindow::OnPaint(HWND hwnd) {
         FillRect(memDC, &avatarRect, avatarBrush);
         DeleteObject(avatarBrush);
 
-        // Shield Logo inside Avatar Box
-        SelectObject(memDC, nameFont);
+        // Player Initial Avatar Badge (e.g. 'S' for Sahil)
+        SelectObject(memDC, avatarFont);
         SetTextColor(memDC, RGB(0, 230, 118)); // Neon Green
-        RECT logoTextRect{ 35, 45, 95, 80 };
-        DrawTextA(memDC, "🛡️", -1, &logoTextRect, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+        std::string initialStr = m_profile.personaName.empty() ? "S" : m_profile.personaName.substr(0, 1);
+        DrawTextA(memDC, initialStr.c_str(), -1, &avatarRect, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
 
         // Steam Persona Name
         SelectObject(memDC, nameFont);
@@ -237,7 +238,7 @@ void AegisXWindow::OnPaint(HWND hwnd) {
         // Steam ID / Status Subtitle
         SelectObject(memDC, subFont);
         SetTextColor(memDC, RGB(160, 174, 192));
-        std::string subText = "Steam Account Verified  •  ID64: " + std::to_string(m_profile.steamId64);
+        std::string subText = "Steam Account Verified   |   ID64: " + std::to_string(m_profile.steamId64);
         RECT subTextRect{ 115, 63, 460, 85 };
         DrawTextA(memDC, subText.c_str(), -1, &subTextRect, DT_LEFT | DT_SINGLELINE);
 
@@ -252,7 +253,7 @@ void AegisXWindow::OnPaint(HWND hwnd) {
         // Banner Title
         SelectObject(memDC, cardTitleFont);
         SetTextColor(memDC, bannerBorder);
-        std::string bannerTitle = m_isViolation ? "❌ Security Violation Detected" : "✔ TPM, Secure Boot & IOMMU Protection Active";
+        std::string bannerTitle = m_isViolation ? "[!] Security Violation Detected" : "[+] TPM, Secure Boot & IOMMU Protection Active";
         RECT bannerTitleRect{ 35, 140, 470, 165 };
         DrawTextA(memDC, bannerTitle.c_str(), -1, &bannerTitleRect, DT_LEFT | DT_SINGLELINE);
 
@@ -268,16 +269,22 @@ void AegisXWindow::OnPaint(HWND hwnd) {
         // 3. Render Bottom Status Bar
         SelectObject(memDC, subFont);
         COLORREF statusDotColor = m_isViolation ? RGB(255, 61, 0) : (m_isProtected ? RGB(0, 230, 118) : RGB(255, 193, 7));
-        SetTextColor(memDC, statusDotColor);
-        RECT statusDotRect{ 20, 275, 40, 300 };
-        DrawTextA(memDC, "🟢", -1, &statusDotRect, DT_LEFT | DT_SINGLELINE);
+
+        // Draw clean GDI Status Dot
+        HBRUSH statusDotBrush = CreateSolidBrush(statusDotColor);
+        HPEN nullPen = (HPEN)GetStockObject(NULL_PEN);
+        SelectObject(memDC, statusDotBrush);
+        SelectObject(memDC, nullPen);
+        Ellipse(memDC, 20, 279, 32, 291);
+        DeleteObject(statusDotBrush);
 
         SetTextColor(memDC, RGB(203, 213, 225));
         std::string bottomText = "Status: " + m_statusText;
-        RECT statusTextRect{ 42, 275, 484, 300 };
+        RECT statusTextRect{ 38, 275, 484, 300 };
         DrawTextA(memDC, bottomText.c_str(), -1, &statusTextRect, DT_LEFT | DT_SINGLELINE);
 
         DeleteObject(nameFont);
+        DeleteObject(avatarFont);
         DeleteObject(subFont);
         DeleteObject(cardTitleFont);
     }
