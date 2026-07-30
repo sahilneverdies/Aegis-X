@@ -148,11 +148,12 @@ void AegisXWindow::TriggerInstallUpdate() {
 
     AutoUpdater::StartUpdateDownload(m_updateInfo, [this](int progressPct, bool completed) {
         if (completed) {
-            m_statusText = "Update Downloaded! Restarting Aegis-X...";
+            m_hasUpdate = false; // Transition to main 3-column GUI dashboard!
+            m_statusText = "Connected  |  Waiting for Counter-Strike 2 to launch...";
         } else {
             m_statusText = "Downloading Update v" + m_updateInfo.latestVersion + " (" + std::to_string(progressPct) + "%)...";
         }
-        if (m_hwnd) InvalidateRect(m_hwnd, NULL, FALSE);
+        if (m_hwnd) InvalidateRect(m_hwnd, NULL, TRUE);
     });
 }
 

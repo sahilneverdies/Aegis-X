@@ -64,10 +64,6 @@ bool AutoUpdater::StartUpdateDownload(const UpdateInfo& info, std::function<void
         }
 
         if (onProgress) onProgress(100, true);
-
-        // Execute background installer and terminate current instance
-        ShellExecuteA(NULL, "open", "cmd.exe", "/c install_update.bat", NULL, SW_HIDE);
-        PostQuitMessage(0);
     }).detach();
 
     return true;
