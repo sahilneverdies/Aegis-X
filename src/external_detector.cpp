@@ -1,6 +1,7 @@
 #include "external_detector.h"
 #include <tlhelp32.h>
 #include <algorithm>
+#include <psapi.h>
 
 namespace cs2ac {
 
@@ -10,7 +11,66 @@ struct EnumParams {
     std::vector<ExternalDetection>* detections;
 };
 
-#include <psapi.h>
+bool ExternalDetector::IsProcessWhitelisted(const std::string& procPath) {
+    std::string pathLower = procPath;
+    std::transform(pathLower.begin(), pathLower.end(), pathLower.begin(), ::tolower);
+
+    std::vector<std::string> whitelist = {
+        "explorer.exe", "dwm.exe", "svchost.exe", "csrss.exe", "shellexperiencehost.exe",
+        "searchhost.exe", "startmenuexperiencehost.exe", "textinputhost.exe", "applicationframehost.exe",
+        "antigravity", "code.exe", "devenv.exe", "whatsapp", "chrome.exe", "msedge.exe",
+        "firefox.exe", "spotify.exe", "steam.exe", "gameoverlayui.exe", "steamwebhelper.exe",
+        "discord.exe", "nvidia", "nvcontainer.exe", "radeon", "aegisx"
+    };
+
+    for (const auto& w : whitelist) {
+        if (pathLower.find(w) != std::string::npos) return true;
+    }
+    return false;
+}
+
+bool ExternalDetector::ScanProcessMemorySignatures(HANDLE hProc, std::string& outSignature) {
+    if (!hProc) return false;
+
+    // Signatures of CS2 memory dumpers, offsets, and external cheat frameworks
+    std::vector<std::pair<std::string, std::string>> signatures = {
+        { "dwLocalPlayerPawn", "CS2 Memory Dumper Offset (dwLocalPlayerPawn)" },
+        { "dwEntityList", "CS2 Entity List Offset (dwEntityList)" },
+        { "dwViewMatrix", "CS2 View Matrix Offset (dwViewMatrix)" },
+        { "C_CSPlayerPawn", "CS2 Player Pawn Entity Class Signature" },
+        { "cs2-external-esp", "CS2 External ESP Signature" },
+        { "cs2_dumper", "CS2 Offset Dumper Signature" },
+        { "kiero", "DirectX/Kiero Hook Framework" },
+        { "MinHook", "MinHook In-Process Detour Engine" }
+    };
+
+    MEMORY_BASIC_INFORMATION mbi{};
+    uintptr_t addr = 0;
+
+    while (VirtualQueryEx(hProc, reinterpret_cast<LPCVOID>(addr), &mbi, sizeof(mbi))) {
+        if ((mbi.State == MEM_COMMIT) && (mbi.Protect & (PAGE_READWRITE | PAGE_WRITECOPY | PAGE_EXECUTE_READWRITE))) {
+            if (mbi.RegionSize > 0 && mbi.RegionSize <= 10 * 1024 * 1024) { // Only scan regions up to 10MB
+                std::vector<char> buffer(mbi.RegionSize);
+                SIZE_T bytesRead = 0;
+                if (ReadProcessMemory(hProc, mbi.BaseAddress, buffer.data(), mbi.RegionSize, &bytesRead) && bytesRead > 0) {
+                    std::string memChunk(buffer.data(), bytesRead);
+                    for (const auto& sig : signatures) {
+                        if (memChunk.find(sig.first) != std::string::npos) {
+                            outSignature = sig.second;
+                            return true;
+                        }
+                    }
+                }
+            }
+        }
+        if (mbi.RegionSize == 0) break;
+        uintptr_t nextAddr = addr + mbi.RegionSize;
+        if (nextAddr <= addr) break;
+        addr = nextAddr;
+    }
+
+    return false;
+}
 
 static BOOL CALLBACK EnumWindowsCallback(HWND hwnd, LPARAM lParam) {
     EnumParams* params = reinterpret_cast<EnumParams*>(lParam);
@@ -68,44 +128,8 @@ static BOOL CALLBACK EnumWindowsCallback(HWND hwnd, LPARAM lParam) {
     if (hProc) {
         char exePath[MAX_PATH]{};
         DWORD szPath = sizeof(exePath);
-        bool gotPath = false;
-
-        // Query full process image name
         if (QueryFullProcessImageNameA(hProc, 0, exePath, &szPath)) {
-            gotPath = true;
-        } else if (GetModuleFileNameExA(hProc, NULL, exePath, sizeof(exePath)) > 0) {
-            gotPath = true;
-        }
-
-        if (gotPath) {
-            std::string procPath = exePath;
-            std::transform(procPath.begin(), procPath.end(), procPath.begin(), ::tolower);
-
-            // Whitelist Windows system processes, IDEs, browsers, WhatsApp, Discord, Steam, NVIDIA, AMD
-            if (procPath.find("explorer.exe") != std::string::npos ||
-                procPath.find("dwm.exe") != std::string::npos ||
-                procPath.find("svchost.exe") != std::string::npos ||
-                procPath.find("csrss.exe") != std::string::npos ||
-                procPath.find("shellexperiencehost.exe") != std::string::npos ||
-                procPath.find("searchhost.exe") != std::string::npos ||
-                procPath.find("startmenuexperiencehost.exe") != std::string::npos ||
-                procPath.find("textinputhost.exe") != std::string::npos ||
-                procPath.find("applicationframehost.exe") != std::string::npos ||
-                procPath.find("antigravity") != std::string::npos ||
-                procPath.find("code.exe") != std::string::npos ||
-                procPath.find("devenv.exe") != std::string::npos ||
-                procPath.find("whatsapp") != std::string::npos ||
-                procPath.find("chrome.exe") != std::string::npos ||
-                procPath.find("msedge.exe") != std::string::npos ||
-                procPath.find("firefox.exe") != std::string::npos ||
-                procPath.find("spotify.exe") != std::string::npos ||
-                procPath.find("steam.exe") != std::string::npos ||
-                procPath.find("gameoverlayui.exe") != std::string::npos ||
-                procPath.find("steamwebhelper.exe") != std::string::npos ||
-                procPath.find("discord.exe") != std::string::npos ||
-                procPath.find("nvidia") != std::string::npos ||
-                procPath.find("nvcontainer.exe") != std::string::npos ||
-                procPath.find("radeon") != std::string::npos) {
+            if (ExternalDetector::IsProcessWhitelisted(exePath)) {
                 CloseHandle(hProc);
                 return TRUE;
             }
@@ -161,15 +185,45 @@ bool ExternalDetector::ScanExternalProcesses(DWORD cs2Pid, std::vector<ExternalD
             std::string exeLower = exeName;
             std::transform(exeLower.begin(), exeLower.end(), exeLower.begin(), ::tolower);
 
-            for (const auto& kw : cheatKeywords) {
-                if (exeLower.find(kw) != std::string::npos) {
-                    ExternalDetection det{};
-                    det.type = "ExternalCheatProcessDetected";
-                    det.description = "Unauthorized external cheat process detected running on system (" + exeName + ").";
-                    det.windowHandle = NULL;
-                    detections.push_back(det);
-                    break;
+            HANDLE hProc = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_VM_READ, FALSE, pe.th32ProcessID);
+            if (hProc) {
+                char exePath[MAX_PATH]{};
+                DWORD szPath = sizeof(exePath);
+                if (QueryFullProcessImageNameA(hProc, 0, exePath, &szPath)) {
+                    std::string procPath = exePath;
+                    if (IsProcessWhitelisted(procPath)) {
+                        CloseHandle(hProc);
+                        continue;
+                    }
                 }
+
+                // 1. Keyword check in filename
+                bool matchedKeyword = false;
+                for (const auto& kw : cheatKeywords) {
+                    if (exeLower.find(kw) != std::string::npos) {
+                        matchedKeyword = true;
+                        ExternalDetection det{};
+                        det.type = "ExternalCheatProcessDetected";
+                        det.description = "Unauthorized external cheat process detected running on system (" + exeName + ").";
+                        det.windowHandle = NULL;
+                        detections.push_back(det);
+                        break;
+                    }
+                }
+
+                // 2. Name-Independent Memory Signature Scan (Detects cheat even if renamed to app.exe / 123.exe / game.exe!)
+                if (!matchedKeyword) {
+                    std::string sigFound;
+                    if (ScanProcessMemorySignatures(hProc, sigFound)) {
+                        ExternalDetection det{};
+                        det.type = "ExternalCheatSignatureDetected";
+                        det.description = "Unauthorized cheat memory signature detected inside process '" + exeName + "' (" + sigFound + ").";
+                        det.windowHandle = NULL;
+                        detections.push_back(det);
+                    }
+                }
+
+                CloseHandle(hProc);
             }
         } while (Process32NextW(hSnap, &pe));
     }
@@ -181,7 +235,7 @@ bool ExternalDetector::ScanExternalProcesses(DWORD cs2Pid, std::vector<ExternalD
 bool ExternalDetector::ScanExternalOverlays(DWORD cs2Pid, std::vector<ExternalDetection>& detections) {
     if (cs2Pid == 0) return false;
 
-    // 1. Scan external processes for cheat executables
+    // 1. Scan external processes for cheat executables & memory signatures
     ScanExternalProcesses(cs2Pid, detections);
 
     // 2. Scan active windows for overlays
@@ -200,10 +254,10 @@ bool ExternalDetector::ScanExternalOverlays(DWORD cs2Pid, std::vector<ExternalDe
 
     if (hCS2Window) {
         RECT cs2Rect;
-        if (GetWindowRect(hCS2Window, &cs2Rect)) {
-            EnumParams params{ cs2Pid, cs2Rect, &detections };
-            EnumWindows(EnumWindowsCallback, reinterpret_cast<LPARAM>(&params));
-        }
+        if (!GetWindowRect(hCS2Window, &cs2Rect)) return !detections.empty();
+
+        EnumParams params{ cs2Pid, cs2Rect, &detections };
+        EnumWindows(EnumWindowsCallback, reinterpret_cast<LPARAM>(&params));
     }
 
     return !detections.empty();
