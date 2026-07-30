@@ -49,7 +49,7 @@ bool MemoryGuard::VerifyCodeIntegrity(HANDLE hProcess, std::string& tamperedModu
                 char szModName[MAX_PATH];
                 if (GetModuleBaseNameA(hProcess, hMods[i], szModName, sizeof(szModName))) {
                     std::string modStr = szModName;
-                    if (modStr == "client.dll" || modStr == "engine2.dll" || modStr == "tier0.dll") {
+                    if (modStr == "client.dll" || modStr == "engine2.dll") {
                         RegisterModuleSection(hProcess, hMods[i], modStr);
                     }
                 }
