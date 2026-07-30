@@ -1,11 +1,13 @@
 #include "gui_window.h"
 #include <uxtheme.h>
 #include <dwmapi.h>
+#include <gdiplus.h>
 #include <iostream>
 
 namespace aegisx {
 
 static AegisXWindow* g_pWindow = nullptr;
+static ULONG_PTR g_gdiplusToken = 0;
 
 SteamProfileInfo AegisXWindow::FetchActiveSteamProfile() {
     SteamProfileInfo info{};
@@ -23,11 +25,31 @@ SteamProfileInfo AegisXWindow::FetchActiveSteamProfile() {
         }
         RegCloseKey(hKey);
     }
+
+    // Retrieve Steam installation path to locate cached avatar PNG
+    if (RegOpenKeyExA(HKEY_CURRENT_USER, "Software\\Valve\\Steam", 0, KEY_READ, &hKey) == ERROR_SUCCESS) {
+        char steamPath[MAX_PATH]{};
+        DWORD sz = sizeof(steamPath);
+        if (RegQueryValueExA(hKey, "SteamPath", NULL, NULL, reinterpret_cast<LPBYTE>(steamPath), &sz) == ERROR_SUCCESS) {
+            std::string avatarFile = std::string(steamPath) + "/config/avatarcache/" + std::to_string(info.steamId64) + ".png";
+            DWORD attrib = GetFileAttributesA(avatarFile.c_str());
+            if (attrib != INVALID_FILE_ATTRIBUTES && !(attrib & FILE_ATTRIBUTE_DIRECTORY)) {
+                info.avatarPath = avatarFile;
+            }
+        }
+        RegCloseKey(hKey);
+    }
+
     return info;
 }
 
 bool AegisXWindow::CreateAegisWindow(HINSTANCE hInstance) {
     g_pWindow = this;
+
+    // Initialize GDI+ for PNG image rendering
+    Gdiplus::GdiplusStartupInput gdiplusStartupInput;
+    Gdiplus::GdiplusStartup(&g_gdiplusToken, &gdiplusStartupInput, NULL);
+
     m_profile = FetchActiveSteamProfile();
 
     WNDCLASSEXA wc{};
@@ -223,11 +245,25 @@ void AegisXWindow::OnPaint(HWND hwnd) {
         FillRect(memDC, &avatarRect, avatarBrush);
         DeleteObject(avatarBrush);
 
-        // Player Initial Avatar Badge (e.g. 'S' for Sahil)
-        SelectObject(memDC, avatarFont);
-        SetTextColor(memDC, RGB(0, 230, 118)); // Neon Green
-        std::string initialStr = m_profile.personaName.empty() ? "S" : m_profile.personaName.substr(0, 1);
-        DrawTextA(memDC, initialStr.c_str(), -1, &avatarRect, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+        bool avatarDrawn = false;
+        if (!m_profile.avatarPath.empty()) {
+            std::wstring wAvatarPath(m_profile.avatarPath.begin(), m_profile.avatarPath.end());
+            Gdiplus::Bitmap avatarImg(wAvatarPath.c_str());
+            if (avatarImg.GetLastStatus() == Gdiplus::Ok) {
+                Gdiplus::Graphics graphics(memDC);
+                graphics.SetInterpolationMode(Gdiplus::InterpolationModeHighQualityBicubic);
+                graphics.DrawImage(&avatarImg, 35, 32, 60, 60);
+                avatarDrawn = true;
+            }
+        }
+
+        if (!avatarDrawn) {
+            // Fallback: Player Initial Avatar Badge (e.g. 'S' for Sahil)
+            SelectObject(memDC, avatarFont);
+            SetTextColor(memDC, RGB(0, 230, 118)); // Neon Green
+            std::string initialStr = m_profile.personaName.empty() ? "S" : m_profile.personaName.substr(0, 1);
+            DrawTextA(memDC, initialStr.c_str(), -1, &avatarRect, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+        }
 
         // Steam Persona Name
         SelectObject(memDC, nameFont);

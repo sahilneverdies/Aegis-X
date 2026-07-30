@@ -47,6 +47,7 @@ target_link_libraries(AegisX_ClientGuard PRIVATE
     advapi32
     user32
     gdi32
+    gdiplus
     dwmapi
     shell32
     setupapi

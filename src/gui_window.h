@@ -9,6 +9,7 @@ namespace aegisx {
 struct SteamProfileInfo {
     std::string personaName = "Sahil";
     uint64_t steamId64 = 76561198000000000ULL;
+    std::string avatarPath = "";
     bool isLoggedIn = true;
 };
 
