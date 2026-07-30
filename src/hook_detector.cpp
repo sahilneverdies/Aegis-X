@@ -8,16 +8,40 @@ namespace cs2ac {
 bool HookDetector::IsAddressInValidModule(HANDLE hProcess, uintptr_t address, std::string& outModuleName) {
     MEMORY_BASIC_INFORMATION mbi{};
     if (VirtualQueryEx(hProcess, reinterpret_cast<LPCVOID>(address), &mbi, sizeof(mbi))) {
-        if (mbi.Type == MEM_IMAGE) {
-            char szModName[MAX_PATH];
-            if (GetModuleFileNameExA(hProcess, reinterpret_cast<HMODULE>(mbi.AllocationBase), szModName, sizeof(szModName))) {
-                outModuleName = szModName;
-            } else {
-                outModuleName = "ValidModuleImage";
-            }
-            return true; // Memory is backed by a valid DLL image on disk
+        char szModPath[MAX_PATH]{};
+        if (GetModuleFileNameExA(hProcess, reinterpret_cast<HMODULE>(mbi.AllocationBase), szModPath, sizeof(szModPath)) > 0) {
+            outModuleName = szModPath;
+            return true; // Memory is backed by a valid DLL file on disk
+        }
+        if (GetModuleFileNameExA(hProcess, reinterpret_cast<HMODULE>(mbi.BaseAddress), szModPath, sizeof(szModPath)) > 0) {
+            outModuleName = szModPath;
+            return true;
         }
     }
+
+    HMODULE hMods[1024];
+    DWORD cbNeeded = 0;
+    if (EnumProcessModulesEx(hProcess, hMods, sizeof(hMods), &cbNeeded, LIST_MODULES_ALL)) {
+        size_t count = cbNeeded / sizeof(HMODULE);
+        for (size_t i = 0; i < count; i++) {
+            MODULEINFO modInfo{};
+            if (GetModuleInformation(hProcess, hMods[i], &modInfo, sizeof(modInfo))) {
+                uintptr_t modStart = reinterpret_cast<uintptr_t>(modInfo.lpBaseOfDll);
+                uintptr_t modEnd = modStart + modInfo.SizeOfImage;
+
+                if (address >= modStart && address < modEnd) {
+                    char szModName[MAX_PATH]{};
+                    if (GetModuleBaseNameA(hProcess, hMods[i], szModName, sizeof(szModName))) {
+                        outModuleName = szModName;
+                    } else {
+                        outModuleName = "ValidModule";
+                    }
+                    return true;
+                }
+            }
+        }
+    }
+
     outModuleName = "UnbackedMemory";
     return false;
 }
@@ -49,22 +73,17 @@ bool HookDetector::ScanInlineHooks(HANDLE hProcess, HMODULE hModule, const char*
     if (destinationAddress != 0) {
         std::string modName;
         if (!IsAddressInValidModule(hProcess, destinationAddress, modName)) {
-            MEMORY_BASIC_INFORMATION destMbi{};
-            if (VirtualQueryEx(hProcess, reinterpret_cast<LPCVOID>(destinationAddress), &destMbi, sizeof(destMbi))) {
-                bool isWritableCode = (destMbi.Protect & (PAGE_EXECUTE_READWRITE | PAGE_EXECUTE_WRITECOPY)) != 0;
-                WORD magic = 0;
-                SIZE_T read = 0;
-                bool hasPEHeader = ReadProcessMemory(hProcess, reinterpret_cast<LPCVOID>(destinationAddress), &magic, sizeof(magic), &read) && read == sizeof(magic) && magic == IMAGE_DOS_SIGNATURE;
-
-                if (isWritableCode || hasPEHeader) {
-                    char hexAddr[32];
-                    snprintf(hexAddr, sizeof(hexAddr), "0x%llX", static_cast<unsigned long long>(destinationAddress));
-                    detail.type = ScanResult::InlineHookDetected;
-                    detail.address = destinationAddress;
-                    detail.description = std::string("Unauthorized inline hook on ") + functionName + " pointing to unbacked RWX memory (" + hexAddr + ").";
-                    detail.moduleName = modName;
-                    return true;
-                }
+            // Verify if unbacked target contains PE header 'MZ' (0x5A4D) of a manual-mapped cheat DLL
+            WORD magic = 0;
+            SIZE_T read = 0;
+            if (ReadProcessMemory(hProcess, reinterpret_cast<LPCVOID>(destinationAddress), &magic, sizeof(magic), &read) && read == sizeof(magic) && magic == IMAGE_DOS_SIGNATURE) {
+                char hexAddr[32];
+                snprintf(hexAddr, sizeof(hexAddr), "0x%llX", static_cast<unsigned long long>(destinationAddress));
+                detail.type = ScanResult::InlineHookDetected;
+                detail.address = destinationAddress;
+                detail.description = std::string("Unauthorized manual-mapped cheat hook on ") + functionName + " (PE 'MZ' header at " + hexAddr + ").";
+                detail.moduleName = modName;
+                return true;
             }
         }
     }
