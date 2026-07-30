@@ -54,7 +54,7 @@ void AbortGameAndNotifyUser(const std::vector<cs2ac::DetectionDetail>& detection
     alertMsg += "Game launch blocked or terminated due to security violation:\n\n";
 
     for (const auto& det : detections) {
-        alertMsg += "• " + det.description + "\n";
+        alertMsg += "- " + det.description + "\n";
     }
 
     alertMsg += "\nPlease disable any unauthorized internal cheats, external overlays, DMA cards, hypervisors, or hooks and try again.";

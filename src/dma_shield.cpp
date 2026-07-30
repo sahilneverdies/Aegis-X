@@ -48,4 +48,4 @@ bool DMAShield::VerifyIOMMUProtectionStatus() {
     return true;
 }
 
-} // namespace cs2ac
+} // namespace cs2ac    

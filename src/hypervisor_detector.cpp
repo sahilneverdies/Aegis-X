@@ -22,7 +22,11 @@ bool HypervisorDetector::CheckHypervisorCPUID(std::string& hypervisorVendor) {
     vendor[12] = '\0';
 
     hypervisorVendor = vendor;
-    return true; // Hypervisor detected!
+    // Whitelist native Windows 11 Hyper-V / Core Isolation (Microsoft Hv)
+    if (hypervisorVendor == "Microsoft Hv") {
+        return false;
+    }
+    return true; // Unauthorized custom hypervisor detected!
 }
 
 bool HypervisorDetector::MeasureVMExitLatency(uint64_t& outCycleDifference) {
