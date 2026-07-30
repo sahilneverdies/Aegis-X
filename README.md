@@ -3,12 +3,6 @@
 
 ### Aegis-X — Next-generation Pure Client-Side Anti-Cheat Suite for Counter-Strike 2 by Sahil.
 
-[![Author](https://img.shields.io/badge/author-Sahil-ff4757?style=for-the-badge)](https://github.com/1nOnlySahil)
-[![Version](https://img.shields.io/badge/version-2.0.0--aegisx-blue?style=for-the-badge)](#quickstart)
-[![Mode](https://img.shields.io/badge/mode-100%25%20Pure%20Client%20Side-brightgreen?style=for-the-badge)](#pure-client-side-protection-daemon-aegisx_guardexe)
-[![Detections](https://img.shields.io/badge/engines-17%20modules-red?style=for-the-badge)](#the-seventeen-detection-modules)
-[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux-5c7cfa?style=for-the-badge)](#quickstart)
-[![License](https://img.shields.io/badge/license-AGPL--3.0-2ea44f?style=for-the-badge)](LICENSE)
 
 **Counter-Strike is at its best when every shot, clutch, and win is earned.**
 
