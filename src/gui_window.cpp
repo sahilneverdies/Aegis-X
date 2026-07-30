@@ -64,7 +64,7 @@ bool AegisXWindow::CreateAegisWindow(HINSTANCE hInstance) {
     RegisterClassExA(&wc);
 
     int width = 500;
-    int height = 220;
+    int height = 255;
     int screenW = GetSystemMetrics(SM_CXSCREEN);
     int screenH = GetSystemMetrics(SM_CYSCREEN);
     int x = (screenW - width) / 2;
@@ -402,20 +402,25 @@ void AegisXWindow::OnPaint(HWND hwnd) {
         RECT m4{ 330, 120, clientRect.right - 18, 140 };
         DrawTextA(memDC, "[+] ANTI-TAMPER: ACTIVE", -1, &m4, DT_LEFT | DT_SINGLELINE);
 
-        // BOTTOM BAR (X: 12 to clientRect.right - 12, Y: 175)
-        SelectObject(memDC, titleFont);
+        // BOTTOM STATUS BAR (X: 12 to clientRect.right - 12, Y: 172 to 212)
+        RECT bottomBarRect{ 12, 172, clientRect.right - 12, 212 };
+        HBRUSH bottomBarBrush = CreateSolidBrush(RGB(18, 22, 30));
+        FillRect(memDC, &bottomBarRect, bottomBarBrush);
+        DeleteObject(bottomBarBrush);
+
+        SelectObject(memDC, subFont);
         COLORREF dotCol = m_isViolation ? alertRed : (m_isProtected ? matrixGreen : RGB(255, 200, 0));
 
         HBRUSH dotBr = CreateSolidBrush(dotCol);
         HPEN nullP = (HPEN)GetStockObject(NULL_PEN);
         SelectObject(memDC, dotBr);
         SelectObject(memDC, nullP);
-        Ellipse(memDC, 14, 185, 23, 194);
+        Ellipse(memDC, 24, 187, 34, 197);
         DeleteObject(dotBr);
 
-        SetTextColor(memDC, RGB(225, 235, 245));
-        std::string bottomMsg = "Aegis-X v3.0  |  " + m_statusText;
-        RECT bottomRect{ 28, 182, clientRect.right - 12, 205 };
+        SetTextColor(memDC, RGB(241, 245, 249));
+        std::string bottomMsg = "Status: " + m_statusText;
+        RECT bottomRect{ 40, 184, clientRect.right - 18, 204 };
         DrawTextA(memDC, bottomMsg.c_str(), -1, &bottomRect, DT_LEFT | DT_SINGLELINE);
 
         DeleteObject(nameFont);

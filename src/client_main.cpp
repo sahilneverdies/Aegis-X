@@ -134,7 +134,7 @@ void BackgroundSecurityThread() {
         }
 
         // 5. Poll for CS2 process launch
-        g_guiWindow.UpdateStatus("Connected  |  Waiting for CS2 to launch...", false, false);
+        g_guiWindow.UpdateStatus("Connected  |  Waiting for Counter-Strike 2 to launch...", false, false);
         DWORD cs2Pid = 0;
         while (cs2Pid == 0) {
             cs2Pid = FindCS2ProcessID();
