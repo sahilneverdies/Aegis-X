@@ -145,6 +145,54 @@ LRESULT CALLBACK AegisXWindow::WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
     }
 }
 
+static void DrawNeumorphicCard(HDC hdc, const RECT& rc, COLORREF bgCol, COLORREF highlightCol, COLORREF shadowCol) {
+    HBRUSH bgBrush = CreateSolidBrush(bgCol);
+    FillRect(hdc, &rc, bgBrush);
+    DeleteObject(bgBrush);
+
+    HPEN lightPen = CreatePen(PS_SOLID, 1, highlightCol);
+    HPEN darkPen = CreatePen(PS_SOLID, 1, shadowCol);
+
+    // Top & Left Light Bevel Highlight
+    HPEN oldPen = (HPEN)SelectObject(hdc, lightPen);
+    MoveToEx(hdc, rc.left, rc.bottom - 1, NULL);
+    LineTo(hdc, rc.left, rc.top);
+    LineTo(hdc, rc.right - 1, rc.top);
+
+    // Bottom & Right Soft Drop Shadow
+    SelectObject(hdc, darkPen);
+    LineTo(hdc, rc.right - 1, rc.bottom - 1);
+    LineTo(hdc, rc.left, rc.bottom - 1);
+
+    SelectObject(hdc, oldPen);
+    DeleteObject(lightPen);
+    DeleteObject(darkPen);
+}
+
+static void DrawNeumorphicInset(HDC hdc, const RECT& rc, COLORREF bgCol, COLORREF shadowCol, COLORREF highlightCol) {
+    HBRUSH bgBrush = CreateSolidBrush(bgCol);
+    FillRect(hdc, &rc, bgBrush);
+    DeleteObject(bgBrush);
+
+    HPEN darkPen = CreatePen(PS_SOLID, 1, shadowCol);
+    HPEN lightPen = CreatePen(PS_SOLID, 1, highlightCol);
+
+    // Top & Left Inner Inset Shadow
+    HPEN oldPen = (HPEN)SelectObject(hdc, darkPen);
+    MoveToEx(hdc, rc.left, rc.bottom - 1, NULL);
+    LineTo(hdc, rc.left, rc.top);
+    LineTo(hdc, rc.right - 1, rc.top);
+
+    // Bottom & Right Inner Inset Highlight Rim
+    SelectObject(hdc, lightPen);
+    LineTo(hdc, rc.right - 1, rc.bottom - 1);
+    LineTo(hdc, rc.left, rc.bottom - 1);
+
+    SelectObject(hdc, oldPen);
+    DeleteObject(darkPen);
+    DeleteObject(lightPen);
+}
+
 void AegisXWindow::OnPaint(HWND hwnd) {
     PAINTSTRUCT ps;
     HDC hdc = BeginPaint(hwnd, &ps);
@@ -157,15 +205,19 @@ void AegisXWindow::OnPaint(HWND hwnd) {
     HBITMAP memBM = CreateCompatibleBitmap(hdc, clientRect.right, clientRect.bottom);
     HBITMAP oldBM = (HBITMAP)SelectObject(memDC, memBM);
 
-    // Background color #0B0E14 (Cyber Obsidian)
-    HBRUSH bgBrush = CreateSolidBrush(RGB(11, 14, 20));
+    // Neumorphic Surface Base Color #1E222A (Soft Dark Slate)
+    COLORREF baseBg = RGB(30, 34, 42);
+    COLORREF highlightCol = RGB(45, 52, 66);  // Light highlight from top-left
+    COLORREF shadowCol = RGB(18, 21, 27);     // Deep shadow to bottom-right
+
+    HBRUSH bgBrush = CreateSolidBrush(baseBg);
     FillRect(memDC, &clientRect, bgBrush);
     DeleteObject(bgBrush);
 
     SetBkMode(memDC, TRANSPARENT);
 
     if (m_isLoading) {
-        // --- AEGIS CYBER STARTING SERVICE ANIMATION ---
+        // --- NEUMORPHIC STARTING SERVICE ANIMATION ---
         HFONT logoFont = CreateFontA(24, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE, "Segoe UI");
         HFONT titleFont = CreateFontA(15, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE, "Segoe UI");
         HFONT subFont = CreateFontA(13, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE, "Segoe UI");
@@ -188,16 +240,14 @@ void AegisXWindow::OnPaint(HWND hwnd) {
         RECT subRect{ 0, 85, clientRect.right, 105 };
         DrawTextA(memDC, "Kernel Security & Driver Shield (by Sahil)", -1, &subRect, DT_CENTER | DT_SINGLELINE);
 
-        // Progress Bar Outer Track (#161B22)
-        RECT barOuter{ 95, 118, 385, 123 };
-        HBRUSH trackBrush = CreateSolidBrush(RGB(22, 27, 34));
-        FillRect(memDC, &barOuter, trackBrush);
-        DeleteObject(trackBrush);
+        // Neumorphic Inset Progress Bar Track
+        RECT barOuter{ 95, 118, 385, 124 };
+        DrawNeumorphicInset(memDC, barOuter, RGB(24, 27, 34), shadowCol, highlightCol);
 
         // Progress Bar Inner Fill (#00E5FF Electric Cyan)
         int fillWidth = (290 * m_loadingProgress) / 100;
         if (fillWidth > 0) {
-            RECT barInner{ 95, 118, 95 + fillWidth, 123 };
+            RECT barInner{ 95, 118, 95 + fillWidth, 124 };
             HBRUSH fillBrush = CreateSolidBrush(RGB(0, 229, 255));
             FillRect(memDC, &barInner, fillBrush);
             DeleteObject(fillBrush);
@@ -227,24 +277,20 @@ void AegisXWindow::OnPaint(HWND hwnd) {
         DeleteObject(titleFont);
         DeleteObject(subFont);
     } else {
-        // --- HIGH-READABILITY MAIN DASHBOARD UI ---
+        // --- NEUMORPHIC SOFT UI DASHBOARD ---
         HFONT nameFont = CreateFontA(20, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE, "Segoe UI");
         HFONT avatarFont = CreateFontA(24, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE, "Segoe UI");
         HFONT subFont = CreateFontA(13, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE, "Segoe UI");
         HFONT bodyFont = CreateFontA(13, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE, "Segoe UI");
         HFONT cardTitleFont = CreateFontA(14, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE, "Segoe UI");
 
-        // 1. Render Steam Profile Card (#161B22 Cyber Dark)
+        // 1. Render Neumorphic Extruded Steam Profile Card
         RECT profileCard{ 10, 10, clientRect.right - 10, 68 };
-        HBRUSH cardBrush = CreateSolidBrush(RGB(22, 27, 34));
-        FillRect(memDC, &profileCard, cardBrush);
-        DeleteObject(cardBrush);
+        DrawNeumorphicCard(memDC, profileCard, RGB(30, 34, 42), highlightCol, shadowCol);
 
-        // Avatar Box (#1F2633 with Electric Cyan Border)
+        // Render Inset Debossed Avatar Box
         RECT avatarRect{ 18, 18, 60, 60 };
-        HBRUSH avatarBrush = CreateSolidBrush(RGB(31, 38, 51));
-        FillRect(memDC, &avatarRect, avatarBrush);
-        DeleteObject(avatarBrush);
+        DrawNeumorphicInset(memDC, avatarRect, RGB(22, 25, 31), shadowCol, highlightCol);
 
         bool avatarDrawn = false;
         if (!m_profile.avatarPath.empty()) {
@@ -266,7 +312,7 @@ void AegisXWindow::OnPaint(HWND hwnd) {
             DrawTextA(memDC, initialStr.c_str(), -1, &avatarRect, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
         }
 
-        // Draw Cyan Border around avatar
+        // Cyan Border around avatar
         HPEN cyanPen = CreatePen(PS_SOLID, 1, RGB(0, 229, 255));
         HBRUSH nullBrush = (HBRUSH)GetStockObject(NULL_BRUSH);
         SelectObject(memDC, cyanPen);
@@ -274,7 +320,7 @@ void AegisXWindow::OnPaint(HWND hwnd) {
         Rectangle(memDC, 17, 17, 61, 61);
         DeleteObject(cyanPen);
 
-        // Steam Persona Name (Bright Pure White #FFFFFF)
+        // Steam Persona Name
         SelectObject(memDC, nameFont);
         SetTextColor(memDC, RGB(255, 255, 255));
         RECT nameTextRect{ 68, 18, clientRect.right - 18, 40 };
@@ -287,22 +333,20 @@ void AegisXWindow::OnPaint(HWND hwnd) {
         RECT subTextRect{ 68, 42, clientRect.right - 18, 62 };
         DrawTextA(memDC, subText.c_str(), -1, &subTextRect, DT_LEFT | DT_SINGLELINE);
 
-        // 2. Render Security Status Banner (#0D281E Dark Emerald for valid, #2E0F17 for violation)
+        // 2. Render Neumorphic Security Status Card
         RECT bannerCard{ 10, 76, clientRect.right - 10, 145 };
-        COLORREF bannerBg = m_isViolation ? RGB(46, 15, 23) : RGB(13, 40, 30);
+        COLORREF bannerBg = m_isViolation ? RGB(46, 15, 23) : RGB(22, 38, 30);
         COLORREF bannerBorder = m_isViolation ? RGB(255, 46, 84) : RGB(0, 245, 160);
-        HBRUSH bannerBrush = CreateSolidBrush(bannerBg);
-        FillRect(memDC, &bannerCard, bannerBrush);
-        DeleteObject(bannerBrush);
+        DrawNeumorphicCard(memDC, bannerCard, bannerBg, highlightCol, shadowCol);
 
-        // Banner Title (Bright Emerald Green #00F5A0)
+        // Banner Title
         SelectObject(memDC, cardTitleFont);
         SetTextColor(memDC, bannerBorder);
         std::string bannerTitle = m_isViolation ? "[!] Security Violation Detected" : "[ HARDWARE && DRIVER SHIELD ACTIVE ]";
         RECT bannerTitleRect{ 20, 85, clientRect.right - 20, 104 };
         DrawTextA(memDC, bannerTitle.c_str(), -1, &bannerTitleRect, DT_LEFT | DT_SINGLELINE);
 
-        // Banner Body Text (Clear Light Emerald #E2F9EE)
+        // Banner Body Text
         SelectObject(memDC, bodyFont);
         SetTextColor(memDC, RGB(226, 249, 238));
         std::string bannerBody = m_isViolation ?
@@ -323,7 +367,7 @@ void AegisXWindow::OnPaint(HWND hwnd) {
         Ellipse(memDC, 16, 157, 26, 167);
         DeleteObject(statusDotBrush);
 
-        // Bright High-Contrast Status Text (#F1F5F9)
+        // Bright High-Contrast Status Text
         SetTextColor(memDC, RGB(241, 245, 249));
         std::string bottomText = "Status: " + m_statusText;
         RECT statusTextRect{ 32, 154, clientRect.right - 5, 174 };
