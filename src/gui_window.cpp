@@ -139,8 +139,45 @@ void AegisXWindow::UpdateStatus(const std::string& statusText, bool isProtected,
     }
 }
 
+void AegisXWindow::TriggerInstallUpdate() {
+    if (m_updateInfo.isDownloading) return;
+
+    m_updateInfo.isDownloading = true;
+    m_statusText = "Downloading Update v" + m_updateInfo.latestVersion + " (0%)...";
+    if (m_hwnd) InvalidateRect(m_hwnd, NULL, FALSE);
+
+    AutoUpdater::StartUpdateDownload(m_updateInfo, [this](int progressPct, bool completed) {
+        if (completed) {
+            m_statusText = "Update Downloaded! Restarting Aegis-X...";
+        } else {
+            m_statusText = "Downloading Update v" + m_updateInfo.latestVersion + " (" + std::to_string(progressPct) + "%)...";
+        }
+        if (m_hwnd) InvalidateRect(m_hwnd, NULL, FALSE);
+    });
+}
+
 LRESULT CALLBACK AegisXWindow::WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
     switch (msg) {
+    case WM_MOUSEMOVE:
+        if (g_pWindow && g_pWindow->m_hasUpdate) {
+            POINT pt{ LOWORD(lParam), HIWORD(lParam) };
+            bool nowHovered = PtInRect(&g_pWindow->m_updateBtnRect, pt);
+            if (nowHovered != g_pWindow->m_btnHovered) {
+                g_pWindow->m_btnHovered = nowHovered;
+                InvalidateRect(hwnd, &g_pWindow->m_updateBtnRect, FALSE);
+            }
+        }
+        return 0;
+
+    case WM_LBUTTONDOWN:
+        if (g_pWindow && g_pWindow->m_hasUpdate) {
+            POINT pt{ LOWORD(lParam), HIWORD(lParam) };
+            if (PtInRect(&g_pWindow->m_updateBtnRect, pt)) {
+                g_pWindow->TriggerInstallUpdate();
+            }
+        }
+        return 0;
+
     case WM_TIMER:
         if (g_pWindow && g_pWindow->m_isLoading) {
             g_pWindow->m_spinnerFrame++;
@@ -447,7 +484,7 @@ void AegisXWindow::OnPaint(HWND hwnd) {
         RECT gaugeSub{ 174, 132, 306, 155 };
         DrawTextA(memDC, "TPM / Secure Boot", -1, &gaugeSub, DT_CENTER | DT_SINGLELINE);
 
-        // COLUMN 3: Live Security Metrics Checklist (X: 320 to 468)
+        // COLUMN 3: Live Security Metrics Checklist & Remote Update Notification
         RECT col3{ 320, 12, clientRect.right - 12, 165 };
         HBRUSH col3Brush = CreateSolidBrush(panelBg);
         FillRect(memDC, &col3, col3Brush);
@@ -455,22 +492,50 @@ void AegisXWindow::OnPaint(HWND hwnd) {
 
         SelectObject(memDC, titleFont);
         SetTextColor(memDC, cyanGlow);
-        RECT metricTitle{ 330, 22, clientRect.right - 18, 42 };
+        RECT metricTitle{ 330, 20, clientRect.right - 18, 38 };
         DrawTextA(memDC, "ACTIVE MODULES", -1, &metricTitle, DT_LEFT | DT_SINGLELINE);
 
         SelectObject(memDC, subFont);
         SetTextColor(memDC, matrixGreen);
-        RECT m1{ 330, 48, clientRect.right - 18, 68 };
-        DrawTextA(memDC, "[+] KERNEL GUARD: PASS", -1, &m1, DT_LEFT | DT_SINGLELINE);
+        RECT m1{ 330, 42, clientRect.right - 18, 60 };
+        DrawTextA(memDC, "[+] KERNEL SHIELD: PASS", -1, &m1, DT_LEFT | DT_SINGLELINE);
 
-        RECT m2{ 330, 72, clientRect.right - 18, 92 };
+        RECT m2{ 330, 62, clientRect.right - 18, 80 };
         DrawTextA(memDC, "[+] PCIe DMA SHIELD: PASS", -1, &m2, DT_LEFT | DT_SINGLELINE);
 
-        RECT m3{ 330, 96, clientRect.right - 18, 116 };
-        DrawTextA(memDC, "[+] HYPERVISOR GUARD: PASS", -1, &m3, DT_LEFT | DT_SINGLELINE);
+        if (m_hasUpdate) {
+            // Render Neon Update Notification Tag
+            SelectObject(memDC, badgeFont);
+            SetTextColor(memDC, RGB(255, 200, 0));
+            RECT upTag{ 330, 84, clientRect.right - 18, 102 };
+            std::string upText = "⚡ NEW UPDATE (v" + m_updateInfo.latestVersion + " - " + std::to_string(m_updateInfo.updateSizeMB) + " MB)";
+            DrawTextA(memDC, upText.c_str(), -1, &upTag, DT_LEFT | DT_SINGLELINE);
 
-        RECT m4{ 330, 120, clientRect.right - 18, 140 };
-        DrawTextA(memDC, "[+] ANTI-TAMPER: ACTIVE", -1, &m4, DT_LEFT | DT_SINGLELINE);
+            // Render Interactive [ INSTALL UPDATE ] Button
+            COLORREF btnBg = m_btnHovered ? cyanGlow : RGB(20, 30, 44);
+            COLORREF btnTxt = m_btnHovered ? RGB(11, 14, 20) : cyanGlow;
+
+            HBRUSH btnBrush = CreateSolidBrush(btnBg);
+            FillRect(memDC, &m_updateBtnRect, btnBrush);
+            DeleteObject(btnBrush);
+
+            HPEN btnPen = CreatePen(PS_SOLID, 1, cyanGlow);
+            SelectObject(memDC, btnPen);
+            SelectObject(memDC, nullBrush);
+            Rectangle(memDC, m_updateBtnRect.left, m_updateBtnRect.top, m_updateBtnRect.right, m_updateBtnRect.bottom);
+            DeleteObject(btnPen);
+
+            SelectObject(memDC, badgeFont);
+            SetTextColor(memDC, btnTxt);
+            std::string btnStr = m_updateInfo.isDownloading ? "DOWNLOADING..." : "[ INSTALL UPDATE ]";
+            DrawTextA(memDC, btnStr.c_str(), -1, &m_updateBtnRect, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+        } else {
+            RECT m3{ 330, 96, clientRect.right - 18, 116 };
+            DrawTextA(memDC, "[+] HYPERVISOR GUARD: PASS", -1, &m3, DT_LEFT | DT_SINGLELINE);
+
+            RECT m4{ 330, 120, clientRect.right - 18, 140 };
+            DrawTextA(memDC, "[+] ANTI-TAMPER: ACTIVE", -1, &m4, DT_LEFT | DT_SINGLELINE);
+        }
 
         // BOTTOM STATUS BAR (X: 12 to clientRect.right - 12, Y: 172 to 212)
         RECT bottomBarRect{ 12, 172, clientRect.right - 12, 212 };
