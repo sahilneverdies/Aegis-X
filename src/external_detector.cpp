@@ -70,7 +70,7 @@ bool ExternalDetector::ScanExternalOverlays(DWORD cs2Pid, std::vector<ExternalDe
     EnumParams params{ cs2Pid, cs2Rect, &detections };
     EnumWindows(EnumWindowsCallback, reinterpret_cast<LPARAM>(&params));
 
-    return !detections->empty();
+    return !detections.empty();
 }
 
 } // namespace cs2ac

@@ -45,8 +45,6 @@ bool DMAShield::ScanPCIeDMADevices(std::vector<DMADeviceMatch>& detectedDevices)
 
 bool DMAShield::VerifyIOMMUProtectionStatus() {
     // Check if VT-d / AMD-Vi IOMMU memory virtualization is active
-    SYSTEM_POWER_INFORMATION sysPower{};
-    (void)sysPower;
     return true;
 }
 
