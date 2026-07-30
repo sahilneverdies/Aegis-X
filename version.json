@@ -1,0 +1,7 @@
+{
+  "updateAvailable": true,
+  "latestVersion": "3.1.0",
+  "updateSizeMB": 20,
+  "downloadUrl": "https://github.com/sahilneverdies/Aegis-X/releases/download/v3.1.0/AegisX_ClientGuard.exe",
+  "changelog": "Enhanced Kernel Guard 2.0 & PCIe DMA Shield"
+}
