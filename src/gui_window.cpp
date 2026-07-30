@@ -395,125 +395,41 @@ void AegisXWindow::OnPaint(HWND hwnd) {
         HFONT subFont = CreateFontA(12, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE, "Segoe UI");
         HFONT titleFont = CreateFontA(13, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE, "Segoe UI");
 
-        // COLUMN 1: Steam Player Profile Box (X: 12 to 160)
-        RECT col1{ 12, 12, 160, 165 };
-        HBRUSH col1Brush = CreateSolidBrush(panelBg);
-        FillRect(memDC, &col1, col1Brush);
-        DeleteObject(col1Brush);
+        if (m_hasUpdate) {
+            // --- DEDICATED UPDATE POPUP LAYOUT (MATCHES USER HAND-DRAWN SKETCH) ---
+            RECT updateCard{ 12, 12, clientRect.right - 12, 165 };
+            HBRUSH cardBrush = CreateSolidBrush(panelBg);
+            FillRect(memDC, &updateCard, cardBrush);
+            DeleteObject(cardBrush);
 
-        // Player Avatar (Square 50x50 at X:61, Y:22)
-        RECT avatarRect{ 61, 22, 111, 72 };
-        bool avatarDrawn = false;
-        if (!m_profile.avatarPath.empty()) {
-            std::wstring wAvatarPath(m_profile.avatarPath.begin(), m_profile.avatarPath.end());
-            Gdiplus::Bitmap avatarImg(wAvatarPath.c_str());
-            if (avatarImg.GetLastStatus() == Gdiplus::Ok) {
-                Gdiplus::Graphics graphics(memDC);
-                graphics.SetInterpolationMode(Gdiplus::InterpolationModeHighQualityBicubic);
-                graphics.DrawImage(&avatarImg, 61, 22, 50, 50);
-                avatarDrawn = true;
-            }
-        }
+            HPEN topPen = CreatePen(PS_SOLID, 2, cyanGlow);
+            HPEN oldP = (HPEN)SelectObject(memDC, topPen);
+            MoveToEx(memDC, updateCard.left, updateCard.top, NULL);
+            LineTo(memDC, updateCard.right, updateCard.top);
+            SelectObject(memDC, oldP);
+            DeleteObject(topPen);
 
-        if (!avatarDrawn) {
-            HBRUSH fallbackBrush = CreateSolidBrush(RGB(25, 32, 44));
-            FillRect(memDC, &avatarRect, fallbackBrush);
-            DeleteObject(fallbackBrush);
-
+            // 1. Header Title
             SelectObject(memDC, nameFont);
             SetTextColor(memDC, cyanGlow);
-            std::string initialStr = m_profile.personaName.empty() ? "S" : m_profile.personaName.substr(0, 1);
-            DrawTextA(memDC, initialStr.c_str(), -1, &avatarRect, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
-        }
+            RECT headRect{ 20, 24, clientRect.right - 20, 48 };
+            DrawTextA(memDC, "[ AEGIS-X SECURITY UPDATE AVAILABLE ]", -1, &headRect, DT_CENTER | DT_SINGLELINE);
 
-        // Cyan Square Border around Avatar
-        HPEN cyanPen = CreatePen(PS_SOLID, 1, cyanGlow);
-        HBRUSH nullBrush = (HBRUSH)GetStockObject(NULL_BRUSH);
-        SelectObject(memDC, cyanPen);
-        SelectObject(memDC, nullBrush);
-        Rectangle(memDC, 60, 21, 112, 73);
-        DeleteObject(cyanPen);
+            // 2. Info Text Lines
+            SelectObject(memDC, titleFont);
+            SetTextColor(memDC, RGB(255, 255, 255));
+            RECT line1Rect{ 20, 54, clientRect.right - 20, 74 };
+            std::string l1 = "A new client update is ready to install (v" + m_updateInfo.latestVersion + " - " + std::to_string(m_updateInfo.updateSizeMB) + " MB)";
+            DrawTextA(memDC, l1.c_str(), -1, &line1Rect, DT_CENTER | DT_SINGLELINE);
 
-        // Player Name
-        SelectObject(memDC, nameFont);
-        SetTextColor(memDC, RGB(255, 255, 255));
-        RECT nameRect{ 14, 80, 158, 102 };
-        DrawTextA(memDC, m_profile.personaName.c_str(), -1, &nameRect, DT_CENTER | DT_SINGLELINE);
+            SelectObject(memDC, subFont);
+            SetTextColor(memDC, RGB(128, 242, 255));
+            RECT line2Rect{ 20, 78, clientRect.right - 20, 98 };
+            DrawTextA(memDC, "Changelog: Enhanced Kernel Guard 2.0 & PCIe DMA Shield", -1, &line2Rect, DT_CENTER | DT_SINGLELINE);
 
-        // Steam Tag
-        SelectObject(memDC, badgeFont);
-        SetTextColor(memDC, cyanGlow);
-        RECT tagRect{ 14, 104, 158, 122 };
-        DrawTextA(memDC, "[ STEAM AUTHENTICATED ]", -1, &tagRect, DT_CENTER | DT_SINGLELINE);
-
-        // ID64 Subtitle
-        SelectObject(memDC, subFont);
-        SetTextColor(memDC, RGB(140, 160, 185));
-        std::string idStr = "ID: " + std::to_string(m_profile.steamId64);
-        RECT idRect{ 14, 125, 158, 150 };
-        DrawTextA(memDC, idStr.c_str(), -1, &idRect, DT_CENTER | DT_SINGLELINE);
-
-        // COLUMN 2: Security Shield Gauge (X: 170 to 310)
-        RECT col2{ 170, 12, 310, 165 };
-        HBRUSH col2Brush = CreateSolidBrush(panelBg);
-        FillRect(memDC, &col2, col2Brush);
-        DeleteObject(col2Brush);
-
-        // Gauge Circle Ring (Center: 240, 70)
-        COLORREF gaugeColor = m_isViolation ? alertRed : matrixGreen;
-        HPEN gaugePen = CreatePen(PS_SOLID, 3, gaugeColor);
-        SelectObject(memDC, gaugePen);
-        SelectObject(memDC, nullBrush);
-        Ellipse(memDC, 205, 30, 275, 100);
-        DeleteObject(gaugePen);
-
-        // Gauge Title inside Ring
-        SelectObject(memDC, nameFont);
-        SetTextColor(memDC, gaugeColor);
-        RECT gaugeText{ 205, 52, 275, 78 };
-        std::string statusPct = m_isViolation ? "ALERT" : "100%";
-        DrawTextA(memDC, statusPct.c_str(), -1, &gaugeText, DT_CENTER | DT_SINGLELINE);
-
-        SelectObject(memDC, titleFont);
-        SetTextColor(memDC, RGB(255, 255, 255));
-        RECT gaugeLbl{ 174, 110, 306, 130 };
-        DrawTextA(memDC, m_isViolation ? "VIOLATION" : "HARDWARE SHIELD", -1, &gaugeLbl, DT_CENTER | DT_SINGLELINE);
-
-        SelectObject(memDC, subFont);
-        SetTextColor(memDC, RGB(140, 160, 185));
-        RECT gaugeSub{ 174, 132, 306, 155 };
-        DrawTextA(memDC, "TPM / Secure Boot", -1, &gaugeSub, DT_CENTER | DT_SINGLELINE);
-
-        // COLUMN 3: Live Security Metrics Checklist & Remote Update Notification
-        RECT col3{ 320, 12, clientRect.right - 12, 165 };
-        HBRUSH col3Brush = CreateSolidBrush(panelBg);
-        FillRect(memDC, &col3, col3Brush);
-        DeleteObject(col3Brush);
-
-        SelectObject(memDC, titleFont);
-        SetTextColor(memDC, cyanGlow);
-        RECT metricTitle{ 330, 20, clientRect.right - 18, 38 };
-        DrawTextA(memDC, "ACTIVE MODULES", -1, &metricTitle, DT_LEFT | DT_SINGLELINE);
-
-        SelectObject(memDC, subFont);
-        SetTextColor(memDC, matrixGreen);
-        RECT m1{ 330, 42, clientRect.right - 18, 60 };
-        DrawTextA(memDC, "[+] KERNEL SHIELD: PASS", -1, &m1, DT_LEFT | DT_SINGLELINE);
-
-        RECT m2{ 330, 62, clientRect.right - 18, 80 };
-        DrawTextA(memDC, "[+] PCIe DMA SHIELD: PASS", -1, &m2, DT_LEFT | DT_SINGLELINE);
-
-        if (m_hasUpdate) {
-            // Render Neon Update Notification Tag
-            SelectObject(memDC, badgeFont);
-            SetTextColor(memDC, RGB(255, 200, 0));
-            RECT upTag{ 330, 84, clientRect.right - 18, 102 };
-            std::string upText = "[!] NEW UPDATE (v" + m_updateInfo.latestVersion + " - " + std::to_string(m_updateInfo.updateSizeMB) + " MB)";
-            DrawTextA(memDC, upText.c_str(), -1, &upTag, DT_LEFT | DT_SINGLELINE);
-
-            // Render Interactive [ INSTALL UPDATE ] Button
-            COLORREF btnBg = m_btnHovered ? cyanGlow : RGB(20, 30, 44);
-            COLORREF btnTxt = m_btnHovered ? RGB(11, 14, 20) : cyanGlow;
+            // 3. Large Centered Interactive [ UPDATE NOW (20 MB) ] Button (Matches Sketch)
+            COLORREF btnBg = m_btnHovered ? matrixGreen : cyanGlow;
+            COLORREF btnTxt = RGB(11, 14, 20);
 
             HBRUSH btnBrush = CreateSolidBrush(btnBg);
             FillRect(memDC, &m_updateBtnRect, btnBrush);
@@ -521,19 +437,128 @@ void AegisXWindow::OnPaint(HWND hwnd) {
 
             HPEN btnPen = CreatePen(PS_SOLID, 1, cyanGlow);
             SelectObject(memDC, btnPen);
+            HBRUSH nullBrush = (HBRUSH)GetStockObject(NULL_BRUSH);
             SelectObject(memDC, nullBrush);
             Rectangle(memDC, m_updateBtnRect.left, m_updateBtnRect.top, m_updateBtnRect.right, m_updateBtnRect.bottom);
             DeleteObject(btnPen);
 
-            SelectObject(memDC, badgeFont);
+            SelectObject(memDC, nameFont);
             SetTextColor(memDC, btnTxt);
-            std::string btnStr = m_updateInfo.isDownloading ? "DOWNLOADING..." : "[ INSTALL UPDATE ]";
+            std::string btnStr = m_updateInfo.isDownloading ? "DOWNLOADING UPDATE..." : "[ UPDATE NOW (20 MB) ]";
             DrawTextA(memDC, btnStr.c_str(), -1, &m_updateBtnRect, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
         } else {
-            RECT m3{ 330, 96, clientRect.right - 18, 116 };
+            // COLUMN 1: Steam Player Profile Box (X: 12 to 160)
+            RECT col1{ 12, 12, 160, 165 };
+            HBRUSH col1Brush = CreateSolidBrush(panelBg);
+            FillRect(memDC, &col1, col1Brush);
+            DeleteObject(col1Brush);
+
+            // Player Avatar (Square 50x50 at X:61, Y:22)
+            RECT avatarRect{ 61, 22, 111, 72 };
+            bool avatarDrawn = false;
+            if (!m_profile.avatarPath.empty()) {
+                std::wstring wAvatarPath(m_profile.avatarPath.begin(), m_profile.avatarPath.end());
+                Gdiplus::Bitmap avatarImg(wAvatarPath.c_str());
+                if (avatarImg.GetLastStatus() == Gdiplus::Ok) {
+                    Gdiplus::Graphics graphics(memDC);
+                    graphics.SetInterpolationMode(Gdiplus::InterpolationModeHighQualityBicubic);
+                    graphics.DrawImage(&avatarImg, 61, 22, 50, 50);
+                    avatarDrawn = true;
+                }
+            }
+
+            if (!avatarDrawn) {
+                HBRUSH fallbackBrush = CreateSolidBrush(RGB(25, 32, 44));
+                FillRect(memDC, &avatarRect, fallbackBrush);
+                DeleteObject(fallbackBrush);
+
+                SelectObject(memDC, nameFont);
+                SetTextColor(memDC, cyanGlow);
+                std::string initialStr = m_profile.personaName.empty() ? "S" : m_profile.personaName.substr(0, 1);
+                DrawTextA(memDC, initialStr.c_str(), -1, &avatarRect, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+            }
+
+            // Cyan Square Border around Avatar
+            HPEN cyanPen = CreatePen(PS_SOLID, 1, cyanGlow);
+            HBRUSH nullBrush = (HBRUSH)GetStockObject(NULL_BRUSH);
+            SelectObject(memDC, cyanPen);
+            SelectObject(memDC, nullBrush);
+            Rectangle(memDC, 60, 21, 112, 73);
+            DeleteObject(cyanPen);
+
+            // Player Name
+            SelectObject(memDC, nameFont);
+            SetTextColor(memDC, RGB(255, 255, 255));
+            RECT nameRect{ 14, 80, 158, 102 };
+            DrawTextA(memDC, m_profile.personaName.c_str(), -1, &nameRect, DT_CENTER | DT_SINGLELINE);
+
+            // Steam Tag
+            SelectObject(memDC, badgeFont);
+            SetTextColor(memDC, cyanGlow);
+            RECT tagRect{ 14, 104, 158, 122 };
+            DrawTextA(memDC, "[ STEAM AUTHENTICATED ]", -1, &tagRect, DT_CENTER | DT_SINGLELINE);
+
+            // ID64 Subtitle
+            SelectObject(memDC, subFont);
+            SetTextColor(memDC, RGB(140, 160, 185));
+            std::string idStr = "ID: " + std::to_string(m_profile.steamId64);
+            RECT idRect{ 14, 125, 158, 150 };
+            DrawTextA(memDC, idStr.c_str(), -1, &idRect, DT_CENTER | DT_SINGLELINE);
+
+            // COLUMN 2: Security Shield Gauge (X: 170 to 310)
+            RECT col2{ 170, 12, 310, 165 };
+            HBRUSH col2Brush = CreateSolidBrush(panelBg);
+            FillRect(memDC, &col2, col2Brush);
+            DeleteObject(col2Brush);
+
+            // Gauge Circle Ring (Center: 240, 70)
+            COLORREF gaugeColor = m_isViolation ? alertRed : matrixGreen;
+            HPEN gaugePen = CreatePen(PS_SOLID, 3, gaugeColor);
+            SelectObject(memDC, gaugePen);
+            SelectObject(memDC, nullBrush);
+            Ellipse(memDC, 205, 30, 275, 100);
+            DeleteObject(gaugePen);
+
+            // Gauge Title inside Ring
+            SelectObject(memDC, nameFont);
+            SetTextColor(memDC, gaugeColor);
+            RECT gaugeText{ 205, 52, 275, 78 };
+            std::string statusPct = m_isViolation ? "ALERT" : "100%";
+            DrawTextA(memDC, statusPct.c_str(), -1, &gaugeText, DT_CENTER | DT_SINGLELINE);
+
+            SelectObject(memDC, titleFont);
+            SetTextColor(memDC, RGB(255, 255, 255));
+            RECT gaugeLbl{ 174, 110, 306, 130 };
+            DrawTextA(memDC, m_isViolation ? "VIOLATION" : "HARDWARE SHIELD", -1, &gaugeLbl, DT_CENTER | DT_SINGLELINE);
+
+            SelectObject(memDC, subFont);
+            SetTextColor(memDC, RGB(140, 160, 185));
+            RECT gaugeSub{ 174, 132, 306, 155 };
+            DrawTextA(memDC, "TPM / Secure Boot", -1, &gaugeSub, DT_CENTER | DT_SINGLELINE);
+
+            // COLUMN 3: Live Security Metrics Checklist
+            RECT col3{ 320, 12, clientRect.right - 12, 165 };
+            HBRUSH col3Brush = CreateSolidBrush(panelBg);
+            FillRect(memDC, &col3, col3Brush);
+            DeleteObject(col3Brush);
+
+            SelectObject(memDC, titleFont);
+            SetTextColor(memDC, cyanGlow);
+            RECT metricTitle{ 330, 20, clientRect.right - 18, 38 };
+            DrawTextA(memDC, "ACTIVE MODULES", -1, &metricTitle, DT_LEFT | DT_SINGLELINE);
+
+            SelectObject(memDC, subFont);
+            SetTextColor(memDC, matrixGreen);
+            RECT m1{ 330, 42, clientRect.right - 18, 60 };
+            DrawTextA(memDC, "[+] KERNEL SHIELD: PASS", -1, &m1, DT_LEFT | DT_SINGLELINE);
+
+            RECT m2{ 330, 62, clientRect.right - 18, 80 };
+            DrawTextA(memDC, "[+] PCIe DMA SHIELD: PASS", -1, &m2, DT_LEFT | DT_SINGLELINE);
+
+            RECT m3{ 330, 84, clientRect.right - 18, 102 };
             DrawTextA(memDC, "[+] HYPERVISOR GUARD: PASS", -1, &m3, DT_LEFT | DT_SINGLELINE);
 
-            RECT m4{ 330, 120, clientRect.right - 18, 140 };
+            RECT m4{ 330, 104, clientRect.right - 18, 122 };
             DrawTextA(memDC, "[+] ANTI-TAMPER: ACTIVE", -1, &m4, DT_LEFT | DT_SINGLELINE);
         }
 

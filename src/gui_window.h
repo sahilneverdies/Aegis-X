@@ -45,7 +45,7 @@ private:
     UpdateInfo m_updateInfo;
     bool m_hasUpdate = true; // Set to true so 20MB Update banner & button display!
     bool m_btnHovered = false;
-    RECT m_updateBtnRect{ 328, 124, 482, 158 };
+    RECT m_updateBtnRect{ 120, 112, 380, 156 };
 
     std::string m_statusText = "Waiting for game to launch...";
     std::string m_violationText = "";
