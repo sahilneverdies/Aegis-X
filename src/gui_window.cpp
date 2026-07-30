@@ -63,7 +63,7 @@ bool AegisXWindow::CreateAegisWindow(HINSTANCE hInstance) {
 
     RegisterClassExA(&wc);
 
-    int width = 460;
+    int width = 480;
     int height = 230;
     int screenW = GetSystemMetrics(SM_CXSCREEN);
     int screenH = GetSystemMetrics(SM_CYSCREEN);
@@ -189,13 +189,13 @@ void AegisXWindow::OnPaint(HWND hwnd) {
         DrawTextA(memDC, "Kernel Security & Driver Shield (by Sahil)", -1, &subRect, DT_CENTER | DT_SINGLELINE);
 
         // Progress Bar Outer Track (#161B22)
-        RECT barOuter{ 95, 118, 365, 123 };
+        RECT barOuter{ 95, 118, 385, 123 };
         HBRUSH trackBrush = CreateSolidBrush(RGB(22, 27, 34));
         FillRect(memDC, &barOuter, trackBrush);
         DeleteObject(trackBrush);
 
         // Progress Bar Inner Fill (#00E5FF Electric Cyan)
-        int fillWidth = (270 * m_loadingProgress) / 100;
+        int fillWidth = (290 * m_loadingProgress) / 100;
         if (fillWidth > 0) {
             RECT barInner{ 95, 118, 95 + fillWidth, 123 };
             HBRUSH fillBrush = CreateSolidBrush(RGB(0, 229, 255));
@@ -325,8 +325,8 @@ void AegisXWindow::OnPaint(HWND hwnd) {
 
         // Bright High-Contrast Status Text (#F1F5F9)
         SetTextColor(memDC, RGB(241, 245, 249));
-        std::string bottomText = "Aegis-X Engine v3.0  |  Status: " + m_statusText;
-        RECT statusTextRect{ 32, 154, clientRect.right - 10, 174 };
+        std::string bottomText = "Status: " + m_statusText;
+        RECT statusTextRect{ 32, 154, clientRect.right - 5, 174 };
         DrawTextA(memDC, bottomText.c_str(), -1, &statusTextRect, DT_LEFT | DT_SINGLELINE);
 
         DeleteObject(nameFont);
