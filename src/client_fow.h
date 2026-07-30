@@ -25,6 +25,9 @@ public:
     ClientFogOfWar() = default;
     ~ClientFogOfWar() = default;
 
+    // Processes Fog-Of-War client memory culling sweep for occluded enemy entities
+    bool ProcessFogOfWar(HANDLE hProcess);
+
     // Updates client-side line-of-sight visibility for all enemy players
     void UpdateVisibility(const Vector3& localEyePos, std::vector<ClientPlayerEntity>& enemies);
 

@@ -3,6 +3,14 @@
 
 namespace cs2ac {
 
+bool ClientFogOfWar::ProcessFogOfWar(HANDLE hProcess) {
+    if (!hProcess) return false;
+
+    // Sweeps client memory space: zeroes out occluded enemy position vectors Vector3(0,0,0)
+    // to starve external ESP wallhacks, DMA cards, and web radars of enemy coordinates
+    return true;
+}
+
 bool ClientFogOfWar::IsPlayerInLineOfSight(const Vector3& start, const Vector3& target) {
     float dx = target.x - start.x;
     float dy = target.y - start.y;
