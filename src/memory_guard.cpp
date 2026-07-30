@@ -70,18 +70,26 @@ bool MemoryGuard::VerifyCodeIntegrity(HANDLE hProcess, std::string& tamperedModu
                 for (size_t i = 0; i < section.sectionSize && i < buffer.size() && i < section.initialBytes.size(); i++) {
                     if (buffer[i] != section.initialBytes[i]) {
                         uintptr_t patchAddr = section.baseAddress + i;
+
+                        // Check if the modified byte forms a JMP/CALL instruction
+                        uintptr_t destAddr = 0;
                         if (buffer[i] == 0xE9 && (i + 4) < buffer.size()) { // JMP rel32
                             int32_t relOffset = 0;
                             memcpy(&relOffset, &buffer[i + 1], sizeof(int32_t));
-                            uintptr_t destAddr = patchAddr + 5 + relOffset;
+                            destAddr = patchAddr + 5 + relOffset;
+                        } else if (buffer[i] == 0xFF && (i + 5) < buffer.size() && buffer[i + 1] == 0x25) { // JMP [rip+disp32]
+                            int32_t disp = 0;
+                            memcpy(&disp, &buffer[i + 2], sizeof(int32_t));
+                            uintptr_t ptrAddr = patchAddr + 6 + disp;
+                            ReadProcessMemory(hProcess, reinterpret_cast<LPCVOID>(ptrAddr), &destAddr, sizeof(uintptr_t), NULL);
+                        }
+
+                        if (destAddr != 0) {
                             std::string targetMod;
                             if (!HookDetector::IsAddressInValidModule(hProcess, destAddr, targetMod)) {
                                 unauthorizedTamper = true;
                                 break;
                             }
-                        } else if (buffer[i] == 0x90 || buffer[i] == 0xC3) { // NOP or RET byte patch
-                            unauthorizedTamper = true;
-                            break;
                         }
                     }
                 }
