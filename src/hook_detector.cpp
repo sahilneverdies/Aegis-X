@@ -49,13 +49,23 @@ bool HookDetector::ScanInlineHooks(HANDLE hProcess, HMODULE hModule, const char*
     if (destinationAddress != 0) {
         std::string modName;
         if (!IsAddressInValidModule(hProcess, destinationAddress, modName)) {
-            char hexAddr[32];
-            snprintf(hexAddr, sizeof(hexAddr), "0x%llX", static_cast<unsigned long long>(destinationAddress));
-            detail.type = ScanResult::InlineHookDetected;
-            detail.address = destinationAddress;
-            detail.description = std::string("Unauthorized inline hook on ") + functionName + " pointing to unbacked memory (" + hexAddr + ").";
-            detail.moduleName = modName;
-            return true;
+            MEMORY_BASIC_INFORMATION destMbi{};
+            if (VirtualQueryEx(hProcess, reinterpret_cast<LPCVOID>(destinationAddress), &destMbi, sizeof(destMbi))) {
+                bool isWritableCode = (destMbi.Protect & (PAGE_EXECUTE_READWRITE | PAGE_EXECUTE_WRITECOPY)) != 0;
+                WORD magic = 0;
+                SIZE_T read = 0;
+                bool hasPEHeader = ReadProcessMemory(hProcess, reinterpret_cast<LPCVOID>(destinationAddress), &magic, sizeof(magic), &read) && read == sizeof(magic) && magic == IMAGE_DOS_SIGNATURE;
+
+                if (isWritableCode || hasPEHeader) {
+                    char hexAddr[32];
+                    snprintf(hexAddr, sizeof(hexAddr), "0x%llX", static_cast<unsigned long long>(destinationAddress));
+                    detail.type = ScanResult::InlineHookDetected;
+                    detail.address = destinationAddress;
+                    detail.description = std::string("Unauthorized inline hook on ") + functionName + " pointing to unbacked RWX memory (" + hexAddr + ").";
+                    detail.moduleName = modName;
+                    return true;
+                }
+            }
         }
     }
 
