@@ -53,8 +53,17 @@ void AbortGameAndNotifyUser(const std::vector<cs2ac::DetectionDetail>& detection
     std::string alertMsg = "Aegis-X Protection Suite (by Sahil)\n\n";
     alertMsg += "Game launch blocked or terminated due to security violation:\n\n";
 
+    std::vector<std::string> uniqueDescriptions;
     for (const auto& det : detections) {
-        alertMsg += "- " + det.description + "\n";
+        if (std::find(uniqueDescriptions.begin(), uniqueDescriptions.end(), det.description) == uniqueDescriptions.end()) {
+            uniqueDescriptions.push_back(det.description);
+        }
+    }
+
+    size_t count = 0;
+    for (const auto& desc : uniqueDescriptions) {
+        alertMsg += "- " + desc + "\n";
+        if (++count >= 5) break;
     }
 
     alertMsg += "\nPlease disable any unauthorized internal cheats, external overlays, DMA cards, hypervisors, or hooks and try again.";

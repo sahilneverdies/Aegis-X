@@ -93,18 +93,21 @@ bool HookDetector::ScanUnbackedExecutableMemory(HANDLE hProcess, std::vector<Det
     bool foundDetection = false;
 
     while (VirtualQueryEx(hProcess, reinterpret_cast<LPCVOID>(address), &mbi, sizeof(mbi))) {
-        if ((mbi.State == MEM_COMMIT) &&
-            (mbi.Protect & (PAGE_EXECUTE_READWRITE | PAGE_EXECUTE_READ | PAGE_EXECUTE_WRITECOPY))) {
-
+        if ((mbi.State == MEM_COMMIT) && (mbi.Protect & PAGE_EXECUTE_READWRITE)) {
             std::string moduleName;
             if (!IsAddressInValidModule(hProcess, reinterpret_cast<uintptr_t>(mbi.BaseAddress), moduleName)) {
-                DetectionDetail detail{};
-                detail.type = ScanResult::UnbackedExecutableMemory;
-                detail.address = reinterpret_cast<uintptr_t>(mbi.BaseAddress);
-                detail.description = "Unbacked executable memory page detected (size: " + std::to_string(mbi.RegionSize) + " bytes). Potential manual-mapped internal cheat.";
-                detail.moduleName = "UnbackedMemory";
-                detections.push_back(detail);
-                foundDetection = true;
+                // Verify if unbacked page contains PE Dos Header magic bytes 'MZ' (0x5A4D)
+                WORD magic = 0;
+                SIZE_T read = 0;
+                if (ReadProcessMemory(hProcess, mbi.BaseAddress, &magic, sizeof(magic), &read) && read == sizeof(magic) && magic == IMAGE_DOS_SIGNATURE) {
+                    DetectionDetail detail{};
+                    detail.type = ScanResult::UnbackedExecutableMemory;
+                    detail.address = reinterpret_cast<uintptr_t>(mbi.BaseAddress);
+                    detail.description = "Manual-mapped internal cheat DLL detected in unbacked RWX memory (PE Header 'MZ' found at 0x" + std::to_string(detail.address) + ").";
+                    detail.moduleName = "UnbackedMemory";
+                    detections.push_back(detail);
+                    foundDetection = true;
+                }
             }
         }
         if (mbi.RegionSize == 0) {
