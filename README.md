@@ -148,7 +148,7 @@ When CS2AC acts, it can do all of this at once:
 
 <div align="center">
 
-<img src="docs/showcase/announcement-chat.png" width="600" alt="CS2AC test announcement in public chat">
+
 
 <table>
 <tr>
