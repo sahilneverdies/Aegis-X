@@ -146,28 +146,7 @@ When CS2AC acts, it can do all of this at once:
 [CS2AC] detected AIMBOT on Player and punished.
 ```
 
-<div align="center">
 
-
-
-<table>
-<tr>
-<td width="33%" align="center">
-<img src="docs/showcase/announcement-center.png" width="100%" alt="CS2AC center-screen test announcement">
-<br><strong>Five-second center alert</strong>
-</td>
-<td width="33%" align="center">
-<img src="docs/showcase/detection.png" width="100%" alt="CS2AC center-screen Aimbot detection">
-<br><strong>Detection sent</strong>
-</td>
-<td width="33%" align="center">
-<img src="docs/showcase/whitelist.png" width="100%" alt="CS2AC announcing a detection on a whitelisted player">
-<br><strong>Whitelist stays visible</strong>
-</td>
-</tr>
-</table>
-
-</div>
 
 Whitelisting does not silence CS2AC. The detection still appears in chat, on screen, in the console, and in Discord; only the punishment command is skipped.
 
